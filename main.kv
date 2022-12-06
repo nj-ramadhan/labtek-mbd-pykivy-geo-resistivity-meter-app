@@ -1,0 +1,20 @@
+#:kivy 2.1.0
+
+#:include main_screen.kv
+#:include splash_screen.kv
+
+ScreenManager:
+    id: screen_manager
+    Screen:
+        name: 'splash_screen'
+        SplashScreen:
+            screen_manager: screen_manager
+            app_window: app
+            monitor_screen: main_screen
+
+    Screen:
+        name: 'main_screen'
+        BoxLayout:
+            orientation: 'vertical'
+            MainScreen:
+                id: main_screen

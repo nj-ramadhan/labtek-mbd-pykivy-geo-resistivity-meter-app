@@ -1,0 +1,57 @@
+#:kivy 2.1.0
+
+<SplashScreen>:
+    canvas.before:
+        Color:
+            rgba: 0.9 , 0.9 , 0.9 , 1
+        Rectangle:
+            size: self.size
+            pos: self.pos
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 1
+        Label:
+            text: 'Resistivity Meter Application'
+            halign: 'center'
+            valign: 'middle'
+            font_size: 70
+            padding: 5 , 5
+            bold: True
+            size_y: .4
+            color: 0, 0, 0
+
+        Image:
+            id: logo
+            source:'asset/logo.png'
+            size_y: 0.5
+            allow_stretch: True
+        
+
+        ProgressBar:
+            id: progress_bar
+            padding: 20 , 20
+            size_x: .6
+            size_y: .2
+            max: 100
+            value: 2
+
+        Label:
+            id: progress_bar_label
+            text: 'Loading.. [2 %]'
+            halign: 'center'
+            valign: 'middle'
+            font_size: 50
+            padding: 2 , 2
+            bold: 'true'
+            size_y: .2
+            color: 0, 0, 0
+
+        Label:
+            text: 'Copyrights @2022'
+            halign: 'center'
+            valign: 'middle'
+            font_size: 30
+            padding: 2 , 2
+            bold: 'true'
+            color: 0, 0, 0
