@@ -107,7 +107,6 @@ class ScreenMain(BoxLayout):
         self.dt_distance = self.ids.slider_distance.value
         self.dt_time = self.ids.slider_time.value
         self.dt_step = self.ids.slider_step.value
-        print(str(self.dt_step))
 
         offset = (self.dt_time + self.dt_distance) / 2
         amplitude = (self.dt_time - self.dt_distance) / 2
