@@ -56,14 +56,21 @@
 			size_hint_y: 0.06
 			padding:10	
 			spacing:20			
-
 			MDFillRoundFlatIconButton:
-				id: bt_illustrate
+				id: bt_data
 				icon: "eye"
-				text: "SHOW DATA"
+				text: "UPDATE DATA"
 				font_size: 22
 				size_hint_x: 0.5
 				on_press: root.data()
+
+			MDFillRoundFlatIconButton:
+				id: bt_measure
+				icon: "gauge"
+				text: "RUN MEASUREMENT"
+				font_size: 22
+				size_hint_x: 0.5
+				on_press: root.measure()
 
 		# MDRectangleFlatIconButton: navigation layout
 		BoxLayout:

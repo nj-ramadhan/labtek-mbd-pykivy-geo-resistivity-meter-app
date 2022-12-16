@@ -10,6 +10,7 @@ from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.image import Image
 from kivy.animation import Animation
+from kivymd.theming import ThemableBehavior
 from kivy.clock import Clock
 from kivy.config import Config
 from kivy.metrics import dp
@@ -57,6 +58,17 @@ n_electrode = np.zeros((ELECTRODES_NUM, STEPS))
 c_electrode = np.array(["#FF0000","#FFDD00","#00FF00","#00FFDD"])
 l_electrode = np.array(["C1","C2","P1","P2"])
 
+checks_mode = []
+checks_config = []
+dt_mode = ""
+dt_config = ""
+dt_distance = 1
+dt_constant = 1
+dt_time = 0
+dt_cycle = 0
+
+dt_measure = np.zeros(6)
+flag_run = False
 
 class ScreenSplash(BoxLayout):
 # class ScreenSplash(Screen):
@@ -86,105 +98,103 @@ class ScreenSplash(BoxLayout):
 class ScreenSetting(BoxLayout):
     screen_manager = ObjectProperty(None)
 
-    checks_mode = []
-    checks_config = []
-
-    flag_measure = False
-
-    dt_mode = ""
-    dt_config = ""
-
-    dt_distance = 0
-    dt_constant = 10
-    dt_time = 0
-    dt_step = 0
-
     def __init__(self, **kwargs):
         super(ScreenSetting, self).__init__(**kwargs)
+        Clock.schedule_once(self.delayed_init)
+        Clock.schedule_interval(self.regular_check, 0.1)
 
-    def hide_widget(self, wid, dohide=True):
-        if hasattr(wid, 'saved_attrs'):
-            if not dohide:
-                wid.width, wid.height, wid.size_hint_x,  wid.size_hint_y, wid.opacity, wid.disabled = wid.saved_attrs
-                # wid.height, wid.size_hint_x,  wid.size_hint_y = wid.saved_attrs
-                del wid.saved_attrs
-        elif dohide:
-            wid.saved_attrs = wid.width, wid.height, wid.size_hint_x, wid.size_hint_y, wid.opacity, wid.disabled
-            wid.width, wid.height, wid.size_hint_x, wid.size_hint_y, wid.opacity, wid.disabled = 0, 0, None, None, 0, True
-            # wid.saved_attrs = wid.height, wid.size_hint_x, wid.size_hint_y
-            # wid.height, wid.size_hint_x, wid.size_hint_y = 0, None, None
+    def regular_check(self, dt):
+        global flag_run
+        if(flag_run):
+            self.ids.bt_measure.text = "STOP MEASUREMENT"
+            self.ids.bt_measure.md_bg_color = "red"
+        else:
+            self.ids.bt_measure.text = "RUN MEASUREMENT"
+            self.ids.bt_measure.md_bg_color = "blue"
+
+    def delayed_init(self, dt):
+        self.fig, self.ax = plt.subplots()
+        self.fig.set_facecolor("#eeeeee")
+        self.fig.tight_layout(pad=3.0)
+
+        self.ids.layout_illustration.add_widget(FigureCanvasKivyAgg(self.fig))
 
     def illustrate(self):
-        self.hide_widget(self.ids.layout_illustration, False)
+        global dt_mode
+        global dt_config
+        global dt_distance
+        global dt_constant
+        global dt_time
+        global dt_cycle
 
-        self.dt_distance = self.ids.slider_distance.value
-        self.dt_constant = self.ids.slider_constant.value
-        self.dt_time = self.ids.slider_time.value
-        self.dt_step = int(self.ids.slider_step.value)
+        dt_distance = self.ids.slider_distance.value
+        dt_constant = self.ids.slider_constant.value
+        dt_time = self.ids.slider_time.value
+        dt_cycle = int(self.ids.slider_step.value)
 
-        self.fig1, self.ax = plt.subplots()
-        self.fig1.set_facecolor("#eeeeee")
-        self.fig1.tight_layout(pad=3.0)
+        self.fig, self.ax = plt.subplots()
+        self.fig.set_facecolor("#eeeeee")
+        self.fig.tight_layout(pad=3.0)
 
         # x_electrode = np.zeros((4,STEPS))
-        self.ids.layout_illustration.remove_widget(FigureCanvasKivyAgg(self.fig1))
+        self.ids.layout_illustration.remove_widget(FigureCanvasKivyAgg(self.fig))
 
-        if("WENNER" in self.dt_config):
-            x_electrode[0, self.dt_step] = self.dt_distance * self.dt_step
-            x_electrode[1, self.dt_step] = self.dt_distance + x_electrode[0, self.dt_step]
-            x_electrode[2, self.dt_step] = self.dt_distance + x_electrode[1, self.dt_step]
-            x_electrode[3, self.dt_step] = self.dt_distance + x_electrode[2, self.dt_step]
+        if("WENNER" in dt_config):
+            x_electrode[0, dt_cycle] = dt_distance * dt_cycle
+            x_electrode[1, dt_cycle] = dt_distance + x_electrode[0, dt_cycle]
+            x_electrode[2, dt_cycle] = dt_distance + x_electrode[1, dt_cycle]
+            x_electrode[3, dt_cycle] = dt_distance + x_electrode[2, dt_cycle]
             self.ax.set_xlim([-2, MAX_DISTANCE])
 
-        elif("SCHLUMBERGER" in self.dt_config):
-            x_electrode[0, self.dt_step] = -0.5 *  self.dt_distance
-            x_electrode[1, self.dt_step] = 0.5 * self.dt_distance
-            x_electrode[2, self.dt_step] = -0.5 * self.dt_distance * self.dt_constant
-            x_electrode[3, self.dt_step] = 0.5 * self.dt_distance * self.dt_constant
+        elif("SCHLUMBERGER" in dt_config):
+            x_electrode[0, dt_cycle] = -0.5 * dt_distance
+            x_electrode[1, dt_cycle] = 0.5 * dt_distance
+            x_electrode[2, dt_cycle] = -0.5 * dt_distance * dt_constant
+            x_electrode[3, dt_cycle] = 0.5 * dt_distance * dt_constant
             self.ax.set_xlim([-MAX_DISTANCE/2, MAX_DISTANCE/2])
 
-        elif("DIPOLE-DIPOLE" in self.dt_config):
-            x_electrode[0, self.dt_step] = 0
-            x_electrode[1, self.dt_step] = self.dt_distance + x_electrode[0, self.dt_step]
-            x_electrode[2, self.dt_step] = self.dt_constant + x_electrode[1, self.dt_step]
-            x_electrode[3, self.dt_step] = self.dt_distance + x_electrode[2, self.dt_step]
+        elif("DIPOLE-DIPOLE" in dt_config):
+            x_electrode[0, dt_cycle] = 0
+            x_electrode[1, dt_cycle] = dt_distance + x_electrode[0, dt_cycle]
+            x_electrode[2, dt_cycle] = dt_constant + x_electrode[1, dt_cycle]
+            x_electrode[3, dt_cycle] = dt_distance + x_electrode[2, dt_cycle]
             self.ax.set_xlim([-2, MAX_DISTANCE])
 
         else:
             pass
 
-        if("(SP) SELF POTENTIAL" in self.dt_mode):
-            n_electrode[0, self.dt_step] = 0 #none
-            n_electrode[1, self.dt_step] = 0 #none
-            n_electrode[2, self.dt_step] = 3 #p1
-            n_electrode[3, self.dt_step] = 4 #p2
+        if("(SP) SELF POTENTIAL" in dt_mode):
+            n_electrode[0, dt_cycle] = 0 #none
+            n_electrode[1, dt_cycle] = 0 #none
+            n_electrode[2, dt_cycle] = 3 #p1
+            n_electrode[3, dt_cycle] = 4 #p2
 
-        elif("(IP) INDUCED POLARIZATION" in self.dt_mode):
-            n_electrode[0, self.dt_step] = 1 #c1
-            n_electrode[1, self.dt_step] = 2 #c2
-            n_electrode[2, self.dt_step] = 3 #p1
-            n_electrode[3, self.dt_step] = 4 #p2
+        elif("(IP) INDUCED POLARIZATION" in dt_mode):
+            n_electrode[0, dt_cycle] = 1 #c1
+            n_electrode[1, dt_cycle] = 2 #c2
+            n_electrode[2, dt_cycle] = 3 #p1
+            n_electrode[3, dt_cycle] = 4 #p2
 
-        elif("(R) RESISTIVITY" in self.dt_mode):
-            n_electrode[0, self.dt_step] = 1 #c1
-            n_electrode[1, self.dt_step] = 2 #c2
-            n_electrode[2, self.dt_step] = 3 #p1
-            n_electrode[3, self.dt_step] = 4 #p2
+        elif("(R) RESISTIVITY" in dt_mode):
+            n_electrode[0, dt_cycle] = 1 #c1
+            n_electrode[1, dt_cycle] = 2 #c2
+            n_electrode[2, dt_cycle] = 3 #p1
+            n_electrode[3, dt_cycle] = 4 #p2
 
-        elif("(R+IP) COMBINATION" in self.dt_mode):
-            n_electrode[0, self.dt_step] = 1 #c1
-            n_electrode[1, self.dt_step] = 2 #c2
-            n_electrode[2, self.dt_step] = 3 #p1
-            n_electrode[3, self.dt_step] = 4 #p2
+        elif("(R+IP) COMBINATION" in dt_mode):
+            n_electrode[0, dt_cycle] = 1 #c1
+            n_electrode[1, dt_cycle] = 2 #c2
+            n_electrode[2, dt_cycle] = 3 #p1
+            n_electrode[3, dt_cycle] = 4 #p2
             
         else:
             pass
 
         self.ax.set_facecolor("#eeeeee")
-        self.ax.scatter(x_electrode[0, self.dt_step], y_electrode[0, self.dt_step], c=c_electrode[0], label=l_electrode[0], marker=7, s=100)
-        self.ax.scatter(x_electrode[1, self.dt_step], y_electrode[1, self.dt_step], c=c_electrode[1], label=l_electrode[1], marker=7, s=100)
-        self.ax.scatter(x_electrode[2, self.dt_step], y_electrode[2, self.dt_step], c=c_electrode[2], label=l_electrode[2], marker=7, s=100)
-        self.ax.scatter(x_electrode[3, self.dt_step], y_electrode[3, self.dt_step], c=c_electrode[3], label=l_electrode[3], marker=7, s=100)
+        self.ax.scatter(x_electrode[0, dt_cycle], y_electrode[0, dt_cycle], c=c_electrode[0], label=l_electrode[0], marker=7, s=100)
+        self.ax.scatter(x_electrode[1, dt_cycle], y_electrode[1, dt_cycle], c=c_electrode[1], label=l_electrode[1], marker=7, s=100)
+        self.ax.scatter(x_electrode[2, dt_cycle], y_electrode[2, dt_cycle], c=c_electrode[2], label=l_electrode[2], marker=7, s=100)
+        self.ax.scatter(x_electrode[3, dt_cycle], y_electrode[3, dt_cycle], c=c_electrode[3], label=l_electrode[3], marker=7, s=100)
         self.ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title="Electrode")
         self.ax.set_xlabel('distance (m)')
         # self.ax.xaxis.set_minor_locator(AutoMinorLocator(2))
@@ -192,54 +202,53 @@ class ScreenSetting(BoxLayout):
         self.ax.grid(which='minor', linewidth=0.6, color="#000000")
 
         self.ids.layout_illustration.clear_widgets()
-        self.ids.layout_illustration.add_widget(FigureCanvasKivyAgg(self.fig1))
-        print(n_electrode)
+        self.ids.layout_illustration.add_widget(FigureCanvasKivyAgg(self.fig))
+        # print(n_electrode)
 
     def measure(self):
-        if(self.flag_measure):
-            self.stop_measure()
+        global flag_run
+        if(flag_run):
+            flag_run = False
         else:
-            self.flag_measure = True
-            self.ids.bt_measure.text = "STOP MEASUREMENT"
-            self.ids.bt_measure.md_bg_color = "red"
-
-    def stop_measure(self):
-        self.flag_measure = False
-        self.ids.bt_measure.text = "RUN MEASUREMENT"
-        self.ids.bt_measure.md_bg_color = "blue"
-        print("measurement stopped")
+            flag_run = True
 
     def checkbox_mode_click(self, instance, value, waves):
+        global checks_mode
+        global dt_mode
+        
         if value == True:
-            self.checks_mode.append(waves)
+            checks_mode.append(waves)
             modes = ''
-            for x in self.checks_mode:
+            for x in checks_mode:
                 modes = f'{modes} {x}'
             self.ids.output_mode_label.text = f'{modes} MODE CHOSEN'
         else:
-            self.checks_mode.remove(waves)
+            checks_mode.remove(waves)
             modes = ''
-            for x in self.checks_mode:
+            for x in checks_mode:
                 modes = f'{modes} {x}'
             self.ids.output_mode_label.text = ''
         
-        self.dt_mode = modes
+        dt_mode = modes
 
     def checkbox_config_click(self, instance, value, waves):
+        global checks_config
+        global dt_config
+
         if value == True:
-            self.checks_config.append(waves)
+            checks_config.append(waves)
             configs = ''
-            for x in self.checks_config:
+            for x in checks_config:
                 configs = f'{configs} {x}'
             self.ids.output_config_label.text = f'{configs} CONFIGURATION CHOSEN'
         else:
-            self.checks_config.remove(waves)
+            checks_config.remove(waves)
             configs = ''
-            for x in self.checks_config:
+            for x in checks_config:
                 configs = f'{configs} {x}'
             self.ids.output_config_label.text = ''
         
-        self.dt_config = configs
+        dt_config = configs
 
     def screen_setting(self):
         self.screen_manager.current = 'screen_setting'
@@ -255,27 +264,46 @@ class ScreenData(BoxLayout):
 
     def __init__(self, **kwargs):
         super(ScreenData, self).__init__(**kwargs)
+        Clock.schedule_once(self.delayed_init)
+        Clock.schedule_interval(self.regular_check, 0.1)
 
-    def data(self):
+    def regular_check(self, dt):
+        global flag_run
+        if(flag_run):
+            self.ids.bt_measure.text = "STOP MEASUREMENT"
+            self.ids.bt_measure.md_bg_color = "red"
+        else:
+            self.ids.bt_measure.text = "RUN MEASUREMENT"
+            self.ids.bt_measure.md_bg_color = "blue"
+
+    def delayed_init(self, dt):
+        print("enter delayed init")
         layout = self.ids.layout_tables
         
-        data_tables = MDDataTable(
+        self.data_tables = MDDataTable(
             use_pagination=True,
             column_data=[
                 ("No.", dp(30)),
-                ("Column 1", dp(30)),
-                ("Column 2", dp(30)),
-                ("Column 3", dp(30)),
-                ("Column 4", dp(30)),
-                ("Column 5", dp(30)),
+                ("Voltage", dp(30)),
+                ("Current", dp(30)),
+                ("Resistivity", dp(30)),
+                ("Std Dev Voltage", dp(30)),
+                ("Std Dev Current", dp(30)),
             ],
-            row_data=[
-                (f"{i + 1}", "1", "2", "3", "4", "5") for i in range(50)
-            ],
+            row_data=[(f"{i + 1}", "1", "2", "3", "4", "5") for i in range(5)]
         )
+        layout.add_widget(self.data_tables)
 
-        layout.remove_widget(data_tables)
-        layout.add_widget(data_tables)
+    def data(self):
+
+        self.data_tables.row_data=[(f"{i + 1}", "1", "2", "3", "4", "5") for i in range(5)]
+
+    def measure(self):
+        global flag_run
+        if(flag_run):
+            flag_run = False
+        else:
+            flag_run = True
 
     def screen_setting(self):
         self.screen_manager.current = 'screen_setting'
@@ -288,9 +316,42 @@ class ScreenData(BoxLayout):
 
 class ScreenGraph(BoxLayout):
     screen_manager = ObjectProperty(None)
+    global flag_run
 
     def __init__(self, **kwargs):
         super(ScreenGraph, self).__init__(**kwargs)
+        Clock.schedule_once(self.delayed_init)
+        Clock.schedule_interval(self.regular_check, 0.1)
+
+    def regular_check(self, dt):
+        global flag_run
+        if(flag_run):
+            self.ids.bt_measure.text = "STOP MEASUREMENT"
+            self.ids.bt_measure.md_bg_color = "red"
+        else:
+            self.ids.bt_measure.text = "RUN MEASUREMENT"
+            self.ids.bt_measure.md_bg_color = "blue"
+
+    def delayed_init(self, dt):
+        print("enter delayed init")
+        
+        self.fig, self.ax = plt.subplots()
+        self.fig.set_facecolor("#eeeeee")
+        self.fig.tight_layout(pad=3.0)
+
+        self.data_colormap = np.zeros((10, 100))
+
+        clrmesh = self.ax.pcolor(self.data_colormap, cmap='seismic', vmin=-0.1, vmax=0.1)
+        self.fig.colorbar(clrmesh, ax=self.ax, format='%f')
+
+        self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))
+
+    def measure(self):
+        global flag_run
+        if(flag_run):
+            flag_run = False
+        else:
+            flag_run = True
 
     def screen_setting(self):
         self.screen_manager.current = 'screen_setting'

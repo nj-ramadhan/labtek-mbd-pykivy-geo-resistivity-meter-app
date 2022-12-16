@@ -1,5 +1,6 @@
 #:kivy 2.1.0
 
+#:import NoTransition kivy.uix.screenmanager.NoTransition
 #:include screen_splash.kv
 #:include screen_setting.kv
 #:include screen_data.kv
@@ -7,6 +8,7 @@
 
 ScreenManager:
     id: screen_manager
+    transition: NoTransition()
     Screen:
         name: 'screen_splash'
         ScreenSplash:
