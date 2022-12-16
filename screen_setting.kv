@@ -1,6 +1,6 @@
 #:kivy 2.1.0
 
-<ScreenMain>:
+<ScreenSetting>:
     BoxLayout:
         orientation: "vertical"
 		# header layout
@@ -48,101 +48,7 @@
 
 				BoxLayout:
 					orientation: "vertical"
-					size_hint_x: 1.2
-					canvas.before:
-						Color:
-							rgba: 0.5, 0, 0, 1
-						Line:
-							width: 2
-							rectangle: self.x, self.y, self.width, self.height
-
-					Label:
-						text: "MEASUREMENT MODE"
-						bold: True
-						font_size: 22
-						color: 0, 0, 0
-						size_hint_y: 0.25
-
-					Label:
-						text: ""
-						size_hint_y: 0.1
-
-					GridLayout:
-						cols:2
-						row_force_default: True
-						row_default_height: 45
-
-						CheckBox:
-							group: "mode"
-							color: 0.5, 0, 0
-							size_hint_x: None
-							width: 100
-							on_active: root.checkbox_mode_click(self, self.active, "(SP) SELF POTENTIAL")
-
-						Label:
-							text: "(SP) SELF POTENTIAL"
-							text_size: self.size
-							halign: "left"
-							valign: "middle"
-							font_size:18
-							color: 0, 0, 0
-
-						CheckBox:
-							group: "mode"
-							color: 0.5, 0, 0
-							size_hint_x: None
-							width: 100
-							on_active: root.checkbox_mode_click(self, self.active, "(IP) INDUCED POLARIZATION")
-							
-						Label:
-							text: "(IP) INDUCED POLARIZATION"
-							text_size: self.size
-							halign: "left"
-							valign: "middle"
-							font_size:18
-							color: 0, 0, 0
-
-						CheckBox:
-							group: "mode"
-							color: 0.5, 0, 0
-							size_hint_x: None
-							width: 100
-							on_active: root.checkbox_mode_click(self, self.active, "(R) RESISTIVITY")		
-
-						Label:
-							text: "(R) RESISTIVITY"
-							text_size: self.size
-							halign: "left"
-							valign: "middle"
-							font_size:18
-							color: 0, 0, 0
-
-						CheckBox:
-							group: "mode"
-							color: 0.5, 0, 0
-							size_hint_x: None
-							width: 100
-							on_active: root.checkbox_mode_click(self, self.active, "(R+IP) COMBINATION")		
-
-						Label:
-							text: "(R+IP) COMBINATION"
-							text_size: self.size
-							halign: "left"
-							valign: "middle"
-							font_size:18
-							color: 0, 0, 0
-
-					Label:
-						id: output_mode_label
-						text: ""
-						font_size:18
-						bold: True
-						color: 0, 0, 0
-						size_hint_y: 0.7
-
-				BoxLayout:
-					orientation: "vertical"
-					size_hint_x: 1.2
+					size_hint_x: 0.8
 					canvas.before:
 						Color:
 							rgba: 0, 0.5, 0, 1
@@ -153,7 +59,7 @@
 					Label:
 						text: "MEASUREMENT CONFIGURATION"
 						bold: True
-						font_size: 22
+						font_size: 16
 						color: 0, 0, 0
 						size_hint_y: 0.25
 
@@ -170,7 +76,7 @@
 							group: "config"
 							color: 0.5, 0, 0
 							size_hint_x: None
-							width: 100
+							width: 60
 							on_active: root.checkbox_config_click(self, self.active, "WENNER")
 
 						Label:
@@ -178,14 +84,14 @@
 							text_size: self.size
 							halign: "left"
 							valign: "middle"
-							font_size:18
+							font_size:16
 							color: 0, 0, 0
 
 						CheckBox:
 							group: "config"
 							color: 0.5, 0, 0
 							size_hint_x: None
-							width: 100
+							width: 60
 							on_active: root.checkbox_config_click(self, self.active, "SCHLUMBERGER")
 							
 						Label:
@@ -193,14 +99,14 @@
 							text_size: self.size
 							halign: "left"
 							valign: "middle"
-							font_size:18
+							font_size:16
 							color: 0, 0, 0
 
 						CheckBox:
 							group: "config"
 							color: 0.5, 0, 0
 							size_hint_x: None
-							width: 100
+							width: 60
 							on_active: root.checkbox_config_click(self, self.active, "DIPOLE-DIPOLE")		
 
 						Label:
@@ -208,13 +114,107 @@
 							text_size: self.size
 							halign: "left"
 							valign: "middle"
-							font_size:18
+							font_size:16
 							color: 0, 0, 0
 
 					Label:
 						id: output_config_label
 						text: ""
-						font_size:18
+						font_size:16
+						bold: True
+						color: 0, 0, 0
+						size_hint_y: 0.7
+
+				BoxLayout:
+					orientation: "vertical"
+					size_hint_x: 0.8
+					canvas.before:
+						Color:
+							rgba: 0.5, 0, 0, 1
+						Line:
+							width: 2
+							rectangle: self.x, self.y, self.width, self.height
+
+					Label:
+						text: "MEASUREMENT MODE"
+						bold: True
+						font_size: 16
+						color: 0, 0, 0
+						size_hint_y: 0.25
+
+					Label:
+						text: ""
+						size_hint_y: 0.1
+
+					GridLayout:
+						cols:2
+						row_force_default: True
+						row_default_height: 45
+
+						CheckBox:
+							group: "mode"
+							color: 0.5, 0, 0
+							size_hint_x: None
+							width: 60
+							on_active: root.checkbox_mode_click(self, self.active, "(SP) SELF POTENTIAL")
+
+						Label:
+							text: "(SP) SELF POTENTIAL"
+							text_size: self.size
+							halign: "left"
+							valign: "middle"
+							font_size:16
+							color: 0, 0, 0
+
+						CheckBox:
+							group: "mode"
+							color: 0.5, 0, 0
+							size_hint_x: None
+							width: 60
+							on_active: root.checkbox_mode_click(self, self.active, "(IP) INDUCED POLARIZATION")
+							
+						Label:
+							text: "(IP) INDUCED POLARIZATION"
+							text_size: self.size
+							halign: "left"
+							valign: "middle"
+							font_size:16
+							color: 0, 0, 0
+
+						CheckBox:
+							group: "mode"
+							color: 0.5, 0, 0
+							size_hint_x: None
+							width: 60
+							on_active: root.checkbox_mode_click(self, self.active, "(R) RESISTIVITY")		
+
+						Label:
+							text: "(R) RESISTIVITY"
+							text_size: self.size
+							halign: "left"
+							valign: "middle"
+							font_size:16
+							color: 0, 0, 0
+
+						CheckBox:
+							group: "mode"
+							color: 0.5, 0, 0
+							size_hint_x: None
+							width: 60
+							on_active: root.checkbox_mode_click(self, self.active, "(R+IP) COMBINATION")		
+
+						Label:
+							text: "(R+IP) COMBINATION"
+							text_size: self.size
+							halign: "left"
+							valign: "middle"
+							font_size:16
+							color: 0, 0, 0
+
+					Label:
+						id: output_mode_label
+						text: ""
+						font_size:16
 						bold: True
 						color: 0, 0, 0
 						size_hint_y: 0.7
@@ -231,30 +231,44 @@
 					Label:
 						text: "MEASUREMENT PARAMETER"
 						bold: True
-						font_size: 22
+						font_size: 16
 						color: 0, 0, 0
 						size_hint_y: 0.1
 
 					GridLayout:
-						cols:3
+						cols:4
 
 						Label:
 							text: "(a) distance"
-							font_size:20
+							font_size:16
+							color: 0, 0, 0
+
+						Label:
+							text: "(n) constant"
+							font_size:16
 							color: 0, 0, 0
 
 						Label:
 							text: "(t) time"
-							font_size:20
+							font_size:16
 							color: 0, 0, 0
 
 						Label:
-							text: "(n) steps"
-							font_size:20
+							text: "(#) step"
+							font_size:16
 							color: 0, 0, 0
 
 						MDSlider:
 							id: slider_distance
+							min: 1
+							max: 25
+							step: 1
+							hint: True
+							hint_bg_color: "white"
+							orientation: 'vertical'
+
+						MDSlider:
+							id: slider_constant
 							min: 1
 							max: 25
 							step: 1
@@ -274,30 +288,37 @@
 
 						MDSlider:
 							id: slider_step
-							min: 1
-							max: 100
-							step: 10
+							min: 0
+							max: 50
+							step: 1
+							value: 0
 							hint: True
 							hint_bg_color: "white"
 							orientation: 'vertical'
 
 						Label:
 							text: str(slider_distance.value) + " m" 
-							font_size:18
-							color: 0, 0, 0
-							bold: True
-						
-						Label:
-							text: str(slider_time.value) + " ms"
-							font_size:18
+							font_size:16
 							color: 0, 0, 0
 							bold: True
 
 						Label:
-							text: str(slider_step.value) 
-							font_size:18
+							text: str(slider_constant.value) 
+							font_size:16
 							color: 0, 0, 0
 							bold: True					
+						
+						Label:
+							text: str(slider_time.value) + " ms"
+							font_size:16
+							color: 0, 0, 0
+							bold: True
+						
+						Label:
+							text: "sequence #"+ str(int(slider_step.value))
+							font_size:16
+							color: 0, 0, 0
+							bold: True
 
 			# illustration graph layout
 			BoxLayout:
@@ -305,54 +326,6 @@
 				padding:10
 				spacing:10
 				size_hint_y: 0.3
-
-		# data layout
-		BoxLayout:
-			id: layout_data
-			orientation: "vertical"
-			padding:10
-			spacing:10
-			height: 0
-			opacity: 0
-			size_hint_x: None
-			size_hint_y: None
-
-			Label:
-				text: "DATA SCREEN"
-				bold: True
-				font_size: 32
-				color: 0, 0, 0
-				size_hint_y: 0.1
-				
-			BoxLayout:
-				id: layout_table
-				size_hint_y: 0.9
-
-				# MDDataTable:
-				# 	size_hint:0.9, 0.6
-				# 	use_pagination:True
-
-		# # graph layout
-		BoxLayout:
-			id: layout_graph
-			orientation: "vertical"
-			padding:10
-			spacing:10
-			height: 0
-			opacity: 0
-			size_hint_x: None
-			size_hint_y: None
-
-			Label:
-				text: "GRAPH SCREEN"
-				bold: True
-				font_size: 32
-				color: 0, 0, 0
-				size_hint_y: 0.1
-				
-			BoxLayout:
-				id: layout_colormesh
-				size_hint_y: 0.9
 
 		# MDFillRoundFlatIconButton: interfacing layout
 		BoxLayout:
@@ -406,7 +379,6 @@
 				font_size: 22
 				size_hint_x: 0.3
 				on_press: root.screen_graph()
-
 
 
 

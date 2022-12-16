@@ -1,0 +1,79 @@
+#:kivy 2.1.0
+
+<ScreenGraph>:
+    BoxLayout:
+        orientation: "vertical"
+		# header layout
+        BoxLayout:
+            id: header_layout
+            orientation: "horizontal"
+            padding: 20
+			size_hint_y: 0.1
+            Image:
+                id: logo
+                source:'asset/logo_labtek.png'
+                size_hint_x: 0.2
+                allow_stretch: True
+
+            BoxLayout:
+                orientation: "vertical"
+                padding: 0, 15
+
+                Label:
+                    id: subtitle            
+                    text: "RESISTIVITY METER APPLICATION"
+                    bold: True
+                    font_size: 40
+                    color: 0, 0, 0
+		
+		# graph layout
+		BoxLayout:
+			id: layout_graph
+			orientation: "vertical"
+			size_hint_y: 0.5
+			padding:10
+			spacing:10
+
+			Label:
+				text: "GRAPH SCREEN"
+				bold: True
+				font_size: 32
+				color: 0, 0, 0
+				size_hint_y: 0.1
+				
+			BoxLayout:
+				orientation: "horizontal"
+				size_hint_y: 0.66
+				spacing: 20
+
+
+		# MDRectangleFlatIconButton: navigation layout
+		BoxLayout:
+			orientation: "horizontal"
+			size_hint_y: 0.06
+			padding:10
+			spacing:20
+
+			MDFillRoundFlatIconButton:
+				id: bt_screen_setting
+				icon: "cogs"
+				text: "SETTING"
+				font_size: 22
+				size_hint_x: 0.3
+				on_press: root.screen_setting()
+
+			MDFillRoundFlatIconButton:
+				id: bt_screen_data
+				icon: "pencil"
+				text: "DATA"
+				font_size: 22
+				size_hint_x: 0.3
+				on_press: root.screen_data()
+
+			MDFillRoundFlatIconButton:
+				id: bt_screen_graph
+				icon: "chart-line"
+				text: "GRAPH"
+				font_size: 22
+				size_hint_x: 0.3
+				on_press: root.screen_graph()                

@@ -1,18 +1,34 @@
 #:kivy 2.1.0
 
-#:include screen_main.kv
 #:include screen_splash.kv
+#:include screen_setting.kv
+#:include screen_data.kv
+#:include screen_graph.kv
 
 ScreenManager:
     id: screen_manager
     Screen:
         name: 'screen_splash'
         ScreenSplash:
-            screen_manager: screen_manager
             app_window: app
-            setting_screen: screen_main
+            screen_manager: screen_manager
+            screen_setting: screen_setting
 
     Screen:
-        name: 'screen_main'
-        ScreenMain:
-            id: screen_main
+        name: 'screen_setting'
+        ScreenSetting:
+            id: screen_setting
+            screen_manager: screen_manager
+
+    Screen:
+        name: 'screen_data'
+        ScreenData:
+            id: screen_data
+            screen_manager: screen_manager
+         
+    Screen:
+        name: 'screen_graph'
+        ScreenGraph:
+            id: screen_graph
+            screen_manager: screen_manager
+                  
