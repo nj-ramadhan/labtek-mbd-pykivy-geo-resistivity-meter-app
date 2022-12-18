@@ -53,11 +53,19 @@
 			spacing:20			
 
 			MDFillRoundFlatIconButton:
+				id: bt_data
+				icon: "content-save"
+				text: "SAVE GRAPH"
+				font_size: 22
+				size_hint_x: 0.5
+				on_press: root.save_graph()
+
+			MDFillRoundFlatIconButton:
 				id: bt_measure
 				icon: "gauge"
 				text: "RUN MEASUREMENT"
 				font_size: 22
-				size_hint_x: 1
+				size_hint_x: 0.5
 				on_press: root.measure()
 
 		# MDRectangleFlatIconButton: navigation layout

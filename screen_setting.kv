@@ -254,15 +254,15 @@
 							color: 0, 0, 0
 
 						Label:
-							text: "(#) step"
+							text: "(#) cycle"
 							font_size:16
 							color: 0, 0, 0
 
 						MDSlider:
 							id: slider_distance
-							min: 1
-							max: 25
-							step: 1
+							min: 1.0
+							max: 10.0
+							step: 0.1
 							hint: True
 							hint_bg_color: "white"
 							orientation: 'vertical'
@@ -270,7 +270,7 @@
 						MDSlider:
 							id: slider_constant
 							min: 1
-							max: 25
+							max: 16
 							step: 1
 							hint: True
 							hint_bg_color: "white"
@@ -287,9 +287,9 @@
 							orientation: 'vertical'
 
 						MDSlider:
-							id: slider_step
-							min: 0
-							max: 50
+							id: slider_cycle
+							min: 1
+							max: 10
 							step: 1
 							value: 0
 							hint: True
@@ -297,13 +297,13 @@
 							orientation: 'vertical'
 
 						Label:
-							text: str(slider_distance.value) + " m" 
+							text: '%2.1f' %slider_distance.value + " m" 
 							font_size:16
 							color: 0, 0, 0
 							bold: True
 
 						Label:
-							text: str(slider_constant.value) 
+							text: str(int(slider_constant.value)) 
 							font_size:16
 							color: 0, 0, 0
 							bold: True					
@@ -315,7 +315,7 @@
 							bold: True
 						
 						Label:
-							text: "sequence #"+ str(int(slider_step.value))
+							text: str(int(slider_cycle.value)) + " cycles"
 							font_size:16
 							color: 0, 0, 0
 							bold: True
