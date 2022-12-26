@@ -65,8 +65,8 @@ dt_mode = ""
 dt_config = ""
 dt_distance = 1
 dt_constant = 1
-dt_time = 0
-dt_cycle = 0
+dt_time = 500
+dt_cycle = 1
 
 dt_measure = np.zeros(6)
 flag_run = False
@@ -102,7 +102,7 @@ class ScreenSetting(BoxLayout):
     def __init__(self, **kwargs):
         super(ScreenSetting, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check, 0.1)
+        Clock.schedule_interval(self.regular_check, 1)
 
     def regular_check(self, dt):
         global flag_run
@@ -299,7 +299,7 @@ class ScreenData(BoxLayout):
     def __init__(self, **kwargs):
         super(ScreenData, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check, 0.1)
+        Clock.schedule_interval(self.regular_check, 1)
 
     def regular_check(self, dt):
         global flag_run
@@ -354,7 +354,7 @@ class ScreenGraph(BoxLayout):
     def __init__(self, **kwargs):
         super(ScreenGraph, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check, 0.1)
+        Clock.schedule_interval(self.regular_check, 1)
 
     def regular_check(self, dt):
         global flag_run
@@ -402,8 +402,9 @@ class BSDSApp(MDApp):
     def build(self):
         self.theme_cls.colors = colors
         self.theme_cls.primary_palette = "Blue"
-        Window.fullscreen = 'auto'
+        # Window.fullscreen = 'auto'
         Window.borderless = True
+        Window.size = 1080, 680
         Window.allow_screensaver = True
         self.icon = 'asset/logo_labtek_p.ico'
 

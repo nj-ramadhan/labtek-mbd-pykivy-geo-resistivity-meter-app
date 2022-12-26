@@ -70,11 +70,10 @@
 					GridLayout:
 						cols:2
 						row_force_default: True
-						row_default_height: 45
+						row_default_height: 60
 
-						CheckBox:
+						MDCheckbox:
 							group: "config"
-							color: 0.5, 0, 0
 							size_hint_x: None
 							width: 60
 							on_active: root.checkbox_config_click(self, self.active, "WENNER")
@@ -87,9 +86,8 @@
 							font_size:16
 							color: 0, 0, 0
 
-						CheckBox:
+						MDCheckbox:
 							group: "config"
-							color: 0.5, 0, 0
 							size_hint_x: None
 							width: 60
 							on_active: root.checkbox_config_click(self, self.active, "SCHLUMBERGER")
@@ -102,9 +100,8 @@
 							font_size:16
 							color: 0, 0, 0
 
-						CheckBox:
+						MDCheckbox:
 							group: "config"
-							color: 0.5, 0, 0
 							size_hint_x: None
 							width: 60
 							on_active: root.checkbox_config_click(self, self.active, "DIPOLE-DIPOLE")		
@@ -151,7 +148,7 @@
 						row_force_default: True
 						row_default_height: 45
 
-						CheckBox:
+						MDCheckbox:
 							group: "mode"
 							color: 0.5, 0, 0
 							size_hint_x: None
@@ -166,7 +163,7 @@
 							font_size:16
 							color: 0, 0, 0
 
-						CheckBox:
+						MDCheckbox:
 							group: "mode"
 							color: 0.5, 0, 0
 							size_hint_x: None
@@ -181,7 +178,7 @@
 							font_size:16
 							color: 0, 0, 0
 
-						CheckBox:
+						MDCheckbox:
 							group: "mode"
 							color: 0.5, 0, 0
 							size_hint_x: None
@@ -196,7 +193,7 @@
 							font_size:16
 							color: 0, 0, 0
 
-						CheckBox:
+						MDCheckbox:
 							group: "mode"
 							color: 0.5, 0, 0
 							size_hint_x: None
@@ -291,7 +288,7 @@
 							min: 1
 							max: 10
 							step: 1
-							value: 0
+							value: 1
 							hint: True
 							hint_bg_color: "white"
 							orientation: 'vertical'
