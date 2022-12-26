@@ -32,9 +32,9 @@ colors = {
     },
 
     "Blue": {
-        "200": "#2222EE",
-        "500": "#2222EE",
-        "700": "#2222EE",
+        "200": "#196BA5",
+        "500": "#196BA5",
+        "700": "#196BA5",
     },
     "Light": {
         "StatusBar": "E0E0E0",
@@ -56,7 +56,7 @@ x_datum = np.zeros(MAX_POINT)
 y_datum = np.zeros(MAX_POINT)
 x_electrode = np.zeros((4, MAX_POINT))
 n_electrode = np.zeros((ELECTRODES_NUM, STEPS))
-c_electrode = np.array(["#0000FF","#FF0000","#FFDD00","#00FF00","#00FFDD"])
+c_electrode = np.array(["#196BA5","#FF0000","#FFDD00","#00FF00","#00FFDD"])
 l_electrode = np.array(["Datum","C1","C2","P1","P2"])
 
 checks_mode = []
@@ -108,10 +108,10 @@ class ScreenSetting(BoxLayout):
         global flag_run
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
-            self.ids.bt_measure.md_bg_color = "red"
+            self.ids.bt_measure.md_bg_color = "#A50000"
         else:
             self.ids.bt_measure.text = "RUN MEASUREMENT"
-            self.ids.bt_measure.md_bg_color = "blue"
+            self.ids.bt_measure.md_bg_color = "#196BA5"
 
     def delayed_init(self, dt):
         self.fig, self.ax = plt.subplots()
@@ -305,10 +305,10 @@ class ScreenData(BoxLayout):
         global flag_run
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
-            self.ids.bt_measure.md_bg_color = "red"
+            self.ids.bt_measure.md_bg_color = "#A50000"
         else:
             self.ids.bt_measure.text = "RUN MEASUREMENT"
-            self.ids.bt_measure.md_bg_color = "blue"
+            self.ids.bt_measure.md_bg_color = "#196BA5"
 
     def delayed_init(self, dt):
         print("enter delayed init")
@@ -360,10 +360,10 @@ class ScreenGraph(BoxLayout):
         global flag_run
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
-            self.ids.bt_measure.md_bg_color = "red"
+            self.ids.bt_measure.md_bg_color = "#A50000"
         else:
             self.ids.bt_measure.text = "RUN MEASUREMENT"
-            self.ids.bt_measure.md_bg_color = "blue"
+            self.ids.bt_measure.md_bg_color = "#196BA5"
 
     def delayed_init(self, dt):
         print("enter delayed init")
@@ -402,11 +402,11 @@ class BSDSApp(MDApp):
     def build(self):
         self.theme_cls.colors = colors
         self.theme_cls.primary_palette = "Blue"
+        self.icon = 'asset/logo_labtek_p.ico'
         # Window.fullscreen = 'auto'
         Window.borderless = True
         Window.size = 1080, 680
         Window.allow_screensaver = True
-        self.icon = 'asset/logo_labtek_p.ico'
 
         screen = Builder.load_file('main.kv')
 
