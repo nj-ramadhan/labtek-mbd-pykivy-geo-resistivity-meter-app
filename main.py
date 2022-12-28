@@ -49,7 +49,7 @@ from kivy.properties import ObjectProperty
 import time
 
 STEPS = 51
-MAX_POINT = 500
+MAX_POINT = 5000
 ELECTRODES_NUM = 48
 
 x_datum = np.zeros(MAX_POINT)
@@ -116,7 +116,12 @@ class ScreenSetting(BoxLayout):
     def delayed_init(self, dt):
         self.fig, self.ax = plt.subplots()
         self.fig.set_facecolor("#eeeeee")
-        self.fig.tight_layout(pad=3.0)
+        self.fig.tight_layout()
+        l, b, w, h = self.ax.get_position().bounds
+        self.ax.set_position(pos=[l, b + 0.3*h, w, h*0.7])
+        
+        self.ax.set_xlabel("distance (m)", fontsize=10)
+        self.ax.set_ylabel("depth (m)", fontsize=10)
 
         self.ids.layout_illustration.add_widget(FigureCanvasKivyAgg(self.fig))
 
@@ -136,10 +141,6 @@ class ScreenSetting(BoxLayout):
         dt_cycle = int(self.ids.slider_cycle.value)
 
         self.fig, self.ax = plt.subplots()
-        self.fig.set_facecolor("#eeeeee")
-        self.fig.tight_layout(pad=3.0)
-
-        # x_electrode = np.zeros((4,STEPS))
         self.ids.layout_illustration.remove_widget(FigureCanvasKivyAgg(self.fig))
         x_datum = np.zeros(MAX_POINT)
         y_datum = np.zeros(MAX_POINT)
@@ -155,37 +156,63 @@ class ScreenSetting(BoxLayout):
                     x_electrode[3, num_step] = num_trial + x_electrode[2, num_step]
                     x_datum[num_step] = (x_electrode[1, num_step] + (x_electrode[2, num_step] - x_electrode[1, num_step])/2) * dt_distance
                     y_datum[num_step] = (multiplier + 1) * dt_distance
-                    print("x:"+ str(x_datum[num_step]) + " y:"+ str(y_datum[num_step]))
+                    # print("x:"+ str(x_datum[num_step]) + " y:"+ str(y_datum[num_step]))
                     num_step += 1
                 num_trial += 1
-            # self.ax.set_ylim(20)
 
         elif("SCHLUMBERGER" in dt_config):
+            num_step = 0
+            num_trial = 1
             for multiplier in range(dt_constant):
                 for pos_el in range(ELECTRODES_NUM - 3 * num_trial):
-                    x_electrode[0, num_step] = pos_el + (ELECTRODES_NUM/2)
+                    x_electrode[0, num_step] = pos_el
                     x_electrode[1, num_step] = num_trial + x_electrode[0, num_step]
                     x_electrode[2, num_step] = num_trial + x_electrode[1, num_step]
                     x_electrode[3, num_step] = num_trial + x_electrode[2, num_step]
                     x_datum[num_step] = (x_electrode[1, num_step] + (x_electrode[2, num_step] - x_electrode[1, num_step])/2) * dt_distance
                     y_datum[num_step] = (multiplier + 1) * dt_distance
-                    print("x:"+ str(x_datum[num_step]) + " y:"+ str(y_datum[num_step]))
+                    # print("x:"+ str(x_datum[num_step]) + " y:"+ str(y_datum[num_step]))
                     num_step += 1
                 num_trial += 1
 
-            x_electrode[0, dt_cycle] = -0.5 * dt_distance
-            x_electrode[1, dt_cycle] = 0.5 * dt_distance
-            x_electrode[2, dt_cycle] = -0.5 * dt_distance * dt_constant
-            x_electrode[3, dt_cycle] = 0.5 * dt_distance * dt_constant
-            self.ax.set_xlim([-MAX_DISTANCE/2, MAX_DISTANCE/2])
-
         elif("DIPOLE-DIPOLE" in dt_config):
-            x_electrode[0, dt_cycle] = 0
-            x_electrode[1, dt_cycle] = dt_distance + x_electrode[0, dt_cycle]
-            x_electrode[2, dt_cycle] = dt_constant + x_electrode[1, dt_cycle]
-            x_electrode[3, dt_cycle] = dt_distance + x_electrode[2, dt_cycle]
-            self.ax.set_xlim([-2, MAX_DISTANCE])
+            nmax_available = 0
+            if(ELECTRODES_NUM % 2) != 0:
+                if(dt_constant > (ELECTRODES_NUM - 3) / 2):
+                    nmax_available = (ELECTRODES_NUM - 3) / 2
+                else:
+                    nmax_available = dt_constant
+            else:
+                if(dt_constant > (ELECTRODES_NUM - 3) / 2):
+                    nmax_available = round((ELECTRODES_NUM - 3) / 2)
+                else:
+                    nmax_available = dt_constant
+            print(nmax_available)
 
+            num_datum = 0
+            count_datum = 0      
+            for i in range(nmax_available):
+                for j in range(ELECTRODES_NUM - 1 - i * 2):
+                    num_datum = num_datum + j
+                count_datum = count_datum + num_datum
+                num_datum = 0     
+            print(count_datum)
+
+            num_step = 0
+            num_trial = 0
+            for i in range(nmax_available):
+                for j in range(ELECTRODES_NUM - 1 - i * 2):
+                    for k in range(ELECTRODES_NUM - i * 2 - j):
+                        x_electrode[1, num_step] = j
+                        x_electrode[0, num_step] = j + 1 + (i - 1)
+                        x_electrode[2, num_step] = num_trial + x_electrode[0, num_step]
+                        x_electrode[3, num_step] = i + x_electrode[2, num_step]
+                        x_datum[num_step] = (x_electrode[0, num_step] + (x_electrode[2, num_step] - x_electrode[0, num_step])/2) * dt_distance
+                        y_datum[num_step] = i * dt_distance
+                        # print("x:"+ str(x_datum[num_step]) + " y:"+ str(y_datum[num_step]))
+                        num_step += 1
+                        num_trial += 1
+                    num_trial = 0
         else:
             pass
 
@@ -216,13 +243,20 @@ class ScreenSetting(BoxLayout):
         else:
             pass
 
+        self.fig.set_facecolor("#eeeeee")
+        self.fig.tight_layout()
+        l, b, w, h = self.ax.get_position().bounds
+        self.ax.set_position(pos=[l, b + 0.3*h, w*0.9, h*0.7])
+        
+        self.ax.set_xlabel("distance (m)", fontsize=10)
+        self.ax.set_ylabel("depth (m)", fontsize=10)
+
         self.ax.set_facecolor("#eeeeee")
         # self.ax.scatter(x_datum, y_datum, c=c_electrode[0], label=l_electrode[0], marker='o')
         x_data = np.trim_zeros(x_datum)
         y_data = np.trim_zeros(y_datum)
         #datum location
-        self.ax.scatter(x_data, y_data, c=c_electrode[0], label=l_electrode[0], marker='o')
-        
+        self.ax.scatter(x_data, y_data, c=c_electrode[0], label=l_electrode[0], marker='.')
         #electrode location
         self.ax.scatter(x_electrode[0,0]*dt_distance , 0, c=c_electrode[1], label=l_electrode[1], marker=7)
         self.ax.scatter(x_electrode[1,0]*dt_distance , 0, c=c_electrode[2], label=l_electrode[2], marker=7)
@@ -231,10 +265,6 @@ class ScreenSetting(BoxLayout):
         
         self.ax.invert_yaxis()
         self.ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title="Electrode")
-        self.ax.set_xlabel('distance (m)')
-        # self.ax.xaxis.set_minor_locator(AutoMinorLocator(2))
-        # self.ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-        
         self.ids.layout_illustration.clear_widgets()
         self.ids.layout_illustration.add_widget(FigureCanvasKivyAgg(self.fig))
         # print(n_electrode)
@@ -293,6 +323,9 @@ class ScreenSetting(BoxLayout):
     def screen_graph(self):
         self.screen_manager.current = 'screen_graph'
 
+    def exec_shutdown(self):
+        os.system("shutdown /s /t 1")
+
 class ScreenData(BoxLayout):
     screen_manager = ObjectProperty(None)
 
@@ -347,6 +380,9 @@ class ScreenData(BoxLayout):
     def screen_graph(self):
         self.screen_manager.current = 'screen_graph'
 
+    def exec_shutdown(self):
+        os.system("shutdown /s /t 1")
+
 class ScreenGraph(BoxLayout):
     screen_manager = ObjectProperty(None)
     global flag_run
@@ -370,10 +406,11 @@ class ScreenGraph(BoxLayout):
         
         self.fig, self.ax = plt.subplots()
         self.fig.set_facecolor("#eeeeee")
-        self.fig.tight_layout(pad=3.0)
+        self.fig.tight_layout()
+        self.ax.grid(False)
 
         self.data_colormap = np.zeros((10, 100))
-
+        
         clrmesh = self.ax.pcolor(self.data_colormap, cmap='seismic', vmin=-0.1, vmax=0.1)
         self.fig.colorbar(clrmesh, ax=self.ax, format='%f')
 
@@ -398,14 +435,17 @@ class ScreenGraph(BoxLayout):
     def screen_graph(self):
         self.screen_manager.current = 'screen_graph'
 
-class BSDSApp(MDApp):
+    def exec_shutdown(self):
+        os.system("shutdown /s /t 1")
+
+class ResistivityMeterApp(MDApp):
     def build(self):
         self.theme_cls.colors = colors
         self.theme_cls.primary_palette = "Blue"
         self.icon = 'asset/logo_labtek_p.ico'
         # Window.fullscreen = 'auto'
         Window.borderless = True
-        Window.size = 1080, 680
+        Window.size = 1024, 600
         Window.allow_screensaver = True
 
         screen = Builder.load_file('main.kv')
@@ -414,4 +454,4 @@ class BSDSApp(MDApp):
 
 
 if __name__ == '__main__':
-    BSDSApp().run()
+    ResistivityMeterApp().run()

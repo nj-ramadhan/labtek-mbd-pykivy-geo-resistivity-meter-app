@@ -73,14 +73,14 @@
 			orientation: "horizontal"
 			size_hint_y: 0.06
 			padding:10
-			spacing:20
+			spacing:10
 
 			MDFillRoundFlatIconButton:
 				id: bt_screen_setting
 				icon: "cogs"
 				text: "SETTING"
 				font_size: 22
-				size_hint_x: 0.3
+				size_hint_x: 0.25
 				on_press: root.screen_setting()
 
 			MDFillRoundFlatIconButton:
@@ -88,7 +88,7 @@
 				icon: "pencil"
 				text: "DATA"
 				font_size: 22
-				size_hint_x: 0.3
+				size_hint_x: 0.25
 				on_press: root.screen_data()
 
 			MDFillRoundFlatIconButton:
@@ -96,5 +96,16 @@
 				icon: "chart-line"
 				text: "GRAPH"
 				font_size: 22
-				size_hint_x: 0.3
-				on_press: root.screen_graph()                
+				size_hint_x: 0.25
+				on_press: root.screen_graph()
+
+			MDFillRoundFlatIconButton:
+				id: bt_shutdown
+				icon: "chart-line"
+				text: "power"
+				font_size: 22
+				size_hint_x: 0.25
+				on_press: root.exec_shutdown()
+
+
+

@@ -44,7 +44,7 @@
 			BoxLayout:
 				orientation: "horizontal"
 				size_hint_y: 0.6
-				spacing: 20
+				spacing: 10
 
 				BoxLayout:
 					orientation: "vertical"
@@ -70,7 +70,7 @@
 					GridLayout:
 						cols:2
 						row_force_default: True
-						row_default_height: 60
+						row_default_height: 40
 
 						MDCheckbox:
 							group: "config"
@@ -83,7 +83,7 @@
 							text_size: self.size
 							halign: "left"
 							valign: "middle"
-							font_size:16
+							font_size:12
 							color: 0, 0, 0
 
 						MDCheckbox:
@@ -97,7 +97,7 @@
 							text_size: self.size
 							halign: "left"
 							valign: "middle"
-							font_size:16
+							font_size:12
 							color: 0, 0, 0
 
 						MDCheckbox:
@@ -111,14 +111,14 @@
 							text_size: self.size
 							halign: "left"
 							valign: "middle"
-							font_size:16
+							font_size:12
 							color: 0, 0, 0
 
 					Label:
 						id: output_config_label
 						text: ""
-						font_size:16
 						bold: True
+						font_size:12
 						color: 0, 0, 0
 						size_hint_y: 0.7
 
@@ -146,7 +146,7 @@
 					GridLayout:
 						cols:2
 						row_force_default: True
-						row_default_height: 45
+						row_default_height: 25
 
 						MDCheckbox:
 							group: "mode"
@@ -160,7 +160,7 @@
 							text_size: self.size
 							halign: "left"
 							valign: "middle"
-							font_size:16
+							font_size:12
 							color: 0, 0, 0
 
 						MDCheckbox:
@@ -175,7 +175,7 @@
 							text_size: self.size
 							halign: "left"
 							valign: "middle"
-							font_size:16
+							font_size:12
 							color: 0, 0, 0
 
 						MDCheckbox:
@@ -190,7 +190,7 @@
 							text_size: self.size
 							halign: "left"
 							valign: "middle"
-							font_size:16
+							font_size:12
 							color: 0, 0, 0
 
 						MDCheckbox:
@@ -205,14 +205,14 @@
 							text_size: self.size
 							halign: "left"
 							valign: "middle"
-							font_size:16
+							font_size:12
 							color: 0, 0, 0
 
 					Label:
 						id: output_mode_label
 						text: ""
-						font_size:16
 						bold: True
+						font_size:12
 						color: 0, 0, 0
 						size_hint_y: 0.7
 
@@ -232,96 +232,109 @@
 						color: 0, 0, 0
 						size_hint_y: 0.1
 
-					GridLayout:
-						cols:4
+					# GridLayout:
+					# 	cols:4
+					BoxLayout:
+						orientation: "vertical"
 
-						Label:
-							text: "(a) distance"
-							font_size:16
-							color: 0, 0, 0
+						BoxLayout:
+							orientation: "horizontal"
+							size_hint_y: 0.1
+							Label:
+								text: "(a) distance"
+								font_size:12
+								color: 0, 0, 0
 
-						Label:
-							text: "(n) constant"
-							font_size:16
-							color: 0, 0, 0
+							Label:
+								text: "(n) constant"
+								font_size:12
+								color: 0, 0, 0
 
-						Label:
-							text: "(t) time"
-							font_size:16
-							color: 0, 0, 0
+							Label:
+								text: "(t) time"
+								font_size:12
+								color: 0, 0, 0
 
-						Label:
-							text: "(#) cycle"
-							font_size:16
-							color: 0, 0, 0
+							Label:
+								text: "(#) cycle"
+								font_size:12
+								color: 0, 0, 0
 
-						MDSlider:
-							id: slider_distance
-							min: 1.0
-							max: 10.0
-							step: 0.1
-							hint: True
-							hint_bg_color: "white"
-							orientation: 'vertical'
+						BoxLayout:
+							orientation: "horizontal"
+							size_hint_y: 0.7
 
-						MDSlider:
-							id: slider_constant
-							min: 1
-							max: 16
-							step: 1
-							hint: True
-							hint_bg_color: "white"
-							orientation: 'vertical'
+							MDSlider:
+								id: slider_distance
+								min: 1.0
+								max: 10.0
+								step: 0.1
+								hint: True
+								hint_bg_color: "white"
+								orientation: 'vertical'
 
-						MDSlider:
-							id: slider_time
-							min: 100
-							max: 2000
-							step: 10
-							value: 1000
-							hint: True
-							hint_bg_color: "white"
-							orientation: 'vertical'
+							MDSlider:
+								id: slider_constant
+								min: 1
+								max: 16
+								step: 1
+								hint: True
+								hint_bg_color: "white"
+								orientation: 'vertical'
 
-						MDSlider:
-							id: slider_cycle
-							min: 1
-							max: 10
-							step: 1
-							value: 1
-							hint: True
-							hint_bg_color: "white"
-							orientation: 'vertical'
+							MDSlider:
+								id: slider_time
+								min: 100
+								max: 2000
+								step: 10
+								value: 1000
+								hint: True
+								hint_bg_color: "white"
+								orientation: 'vertical'
 
-						Label:
-							text: '%2.1f' %slider_distance.value + " m" 
-							font_size:16
-							color: 0, 0, 0
-							bold: True
+							MDSlider:
+								id: slider_cycle
+								min: 1
+								max: 10
+								step: 1
+								value: 1
+								hint: True
+								hint_bg_color: "white"
+								orientation: 'vertical'
 
-						Label:
-							text: str(int(slider_constant.value)) 
-							font_size:16
-							color: 0, 0, 0
-							bold: True					
-						
-						Label:
-							text: str(slider_time.value) + " ms"
-							font_size:16
-							color: 0, 0, 0
-							bold: True
-						
-						Label:
-							text: str(int(slider_cycle.value)) + " cycles"
-							font_size:16
-							color: 0, 0, 0
-							bold: True
+						BoxLayout:
+							orientation: "horizontal"
+							size_hint_y: 0.2
+
+							Label:
+								text: '%2.1f' %slider_distance.value + " m" 
+								font_size:16
+								color: 0, 0, 0
+								bold: True
+
+							Label:
+								text: str(int(slider_constant.value)) 
+								font_size:16
+								color: 0, 0, 0
+								bold: True					
+							
+							Label:
+								text: str(slider_time.value) + " ms"
+								font_size:16
+								color: 0, 0, 0
+								bold: True
+							
+							Label:
+								text: str(int(slider_cycle.value)) + " cycles"
+								font_size:16
+								color: 0, 0, 0
+								bold: True
 
 			# illustration graph layout
 			BoxLayout:
 				id: layout_illustration
-				padding:10
-				spacing:10
+				# padding:10
+				spacing:20
 				size_hint_y: 0.3
 
 		# MDFillRoundFlatIconButton: interfacing layout
@@ -351,14 +364,14 @@
 			orientation: "horizontal"
 			size_hint_y: 0.06
 			padding:10
-			spacing:20
+			spacing:10
 
 			MDFillRoundFlatIconButton:
 				id: bt_screen_setting
 				icon: "cogs"
 				text: "SETTING"
 				font_size: 22
-				size_hint_x: 0.3
+				size_hint_x: 0.25
 				on_press: root.screen_setting()
 
 			MDFillRoundFlatIconButton:
@@ -366,7 +379,7 @@
 				icon: "pencil"
 				text: "DATA"
 				font_size: 22
-				size_hint_x: 0.3
+				size_hint_x: 0.25
 				on_press: root.screen_data()
 
 			MDFillRoundFlatIconButton:
@@ -374,9 +387,16 @@
 				icon: "chart-line"
 				text: "GRAPH"
 				font_size: 22
-				size_hint_x: 0.3
+				size_hint_x: 0.25
 				on_press: root.screen_graph()
 
+			MDFillRoundFlatIconButton:
+				id: bt_shutdown
+				icon: "chart-line"
+				text: "power"
+				font_size: 22
+				size_hint_x: 0.25
+				on_press: root.exec_shutdown()
 
 
 
