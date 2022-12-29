@@ -150,7 +150,6 @@
 
 						MDCheckbox:
 							group: "mode"
-							color: 0.5, 0, 0
 							size_hint_x: None
 							width: 60
 							on_active: root.checkbox_mode_click(self, self.active, "(SP) SELF POTENTIAL")
@@ -165,7 +164,6 @@
 
 						MDCheckbox:
 							group: "mode"
-							color: 0.5, 0, 0
 							size_hint_x: None
 							width: 60
 							on_active: root.checkbox_mode_click(self, self.active, "(IP) INDUCED POLARIZATION")
@@ -180,7 +178,6 @@
 
 						MDCheckbox:
 							group: "mode"
-							color: 0.5, 0, 0
 							size_hint_x: None
 							width: 60
 							on_active: root.checkbox_mode_click(self, self.active, "(R) RESISTIVITY")		
@@ -195,7 +192,6 @@
 
 						MDCheckbox:
 							group: "mode"
-							color: 0.5, 0, 0
 							size_hint_x: None
 							width: 60
 							on_active: root.checkbox_mode_click(self, self.active, "(R+IP) COMBINATION")		
@@ -392,8 +388,8 @@
 
 			MDFillRoundFlatIconButton:
 				id: bt_shutdown
-				icon: "chart-line"
-				text: "power"
+				icon: "power"
+				text: "SHUTDOWN"
 				font_size: 22
 				size_hint_x: 0.25
 				on_press: root.exec_shutdown()

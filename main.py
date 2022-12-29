@@ -16,7 +16,7 @@ from kivy.config import Config
 from kivy.metrics import dp
 from kivy.garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
 import matplotlib.pyplot as plt
-import matplotlib as mpl
+import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from matplotlib.ticker import AutoMinorLocator
@@ -49,7 +49,8 @@ from kivy.properties import ObjectProperty
 import time
 
 STEPS = 51
-MAX_POINT = 5000
+# MAX_POINT_WENNER = 500
+MAX_POINT = 10000
 ELECTRODES_NUM = 48
 
 x_datum = np.zeros(MAX_POINT)
@@ -58,6 +59,8 @@ x_electrode = np.zeros((4, MAX_POINT))
 n_electrode = np.zeros((ELECTRODES_NUM, STEPS))
 c_electrode = np.array(["#196BA5","#FF0000","#FFDD00","#00FF00","#00FFDD"])
 l_electrode = np.array(["Datum","C1","C2","P1","P2"])
+data_base = np.zeros([5, 1])
+data_pos = np.zeros([2, 1])
 
 checks_mode = []
 checks_config = []
@@ -120,8 +123,8 @@ class ScreenSetting(BoxLayout):
         l, b, w, h = self.ax.get_position().bounds
         self.ax.set_position(pos=[l, b + 0.3*h, w, h*0.7])
         
-        self.ax.set_xlabel("distance (m)", fontsize=10)
-        self.ax.set_ylabel("depth (m)", fontsize=10)
+        self.ax.set_xlabel("distance [m]", fontsize=10)
+        self.ax.set_ylabel("depth [m]", fontsize=10)
 
         self.ids.layout_illustration.add_widget(FigureCanvasKivyAgg(self.fig))
 
@@ -134,6 +137,7 @@ class ScreenSetting(BoxLayout):
         global dt_cycle
         global x_datum
         global y_datum
+        global data_pos
 
         dt_distance = self.ids.slider_distance.value
         dt_constant = self.ids.slider_constant.value
@@ -187,7 +191,6 @@ class ScreenSetting(BoxLayout):
                     nmax_available = round((ELECTRODES_NUM - 3) / 2)
                 else:
                     nmax_available = dt_constant
-            print(nmax_available)
 
             num_datum = 0
             count_datum = 0      
@@ -196,10 +199,9 @@ class ScreenSetting(BoxLayout):
                     num_datum = num_datum + j
                 count_datum = count_datum + num_datum
                 num_datum = 0     
-            print(count_datum)
 
-            num_step = 0
-            num_trial = 0
+            num_step = 1
+            num_trial = 1
             for i in range(nmax_available):
                 for j in range(ELECTRODES_NUM - 1 - i * 2):
                     for k in range(ELECTRODES_NUM - i * 2 - j):
@@ -208,38 +210,11 @@ class ScreenSetting(BoxLayout):
                         x_electrode[2, num_step] = num_trial + x_electrode[0, num_step]
                         x_electrode[3, num_step] = i + x_electrode[2, num_step]
                         x_datum[num_step] = (x_electrode[0, num_step] + (x_electrode[2, num_step] - x_electrode[0, num_step])/2) * dt_distance
-                        y_datum[num_step] = i * dt_distance
+                        y_datum[num_step] = (i + 1) * dt_distance
                         # print("x:"+ str(x_datum[num_step]) + " y:"+ str(y_datum[num_step]))
                         num_step += 1
                         num_trial += 1
                     num_trial = 0
-        else:
-            pass
-
-        if("(SP) SELF POTENTIAL" in dt_mode):
-            n_electrode[0, dt_cycle] = 0 #none
-            n_electrode[1, dt_cycle] = 0 #none
-            n_electrode[2, dt_cycle] = 3 #p1
-            n_electrode[3, dt_cycle] = 4 #p2
-
-        elif("(IP) INDUCED POLARIZATION" in dt_mode):
-            n_electrode[0, dt_cycle] = 1 #c1
-            n_electrode[1, dt_cycle] = 2 #c2
-            n_electrode[2, dt_cycle] = 3 #p1
-            n_electrode[3, dt_cycle] = 4 #p2
-
-        elif("(R) RESISTIVITY" in dt_mode):
-            n_electrode[0, dt_cycle] = 1 #c1
-            n_electrode[1, dt_cycle] = 2 #c2
-            n_electrode[2, dt_cycle] = 3 #p1
-            n_electrode[3, dt_cycle] = 4 #p2
-
-        elif("(R+IP) COMBINATION" in dt_mode):
-            n_electrode[0, dt_cycle] = 1 #c1
-            n_electrode[1, dt_cycle] = 2 #c2
-            n_electrode[2, dt_cycle] = 3 #p1
-            n_electrode[3, dt_cycle] = 4 #p2
-            
         else:
             pass
 
@@ -248,13 +223,14 @@ class ScreenSetting(BoxLayout):
         l, b, w, h = self.ax.get_position().bounds
         self.ax.set_position(pos=[l, b + 0.3*h, w*0.9, h*0.7])
         
-        self.ax.set_xlabel("distance (m)", fontsize=10)
-        self.ax.set_ylabel("depth (m)", fontsize=10)
+        self.ax.set_xlabel("distance [m]", fontsize=10)
+        self.ax.set_ylabel("depth [m]", fontsize=10)
 
         self.ax.set_facecolor("#eeeeee")
         # self.ax.scatter(x_datum, y_datum, c=c_electrode[0], label=l_electrode[0], marker='o')
         x_data = np.trim_zeros(x_datum)
         y_data = np.trim_zeros(y_datum)
+        data_pos = np.array([x_data, y_data])
         #datum location
         self.ax.scatter(x_data, y_data, c=c_electrode[0], label=l_electrode[0], marker='.')
         #electrode location
@@ -328,6 +304,7 @@ class ScreenSetting(BoxLayout):
 
 class ScreenData(BoxLayout):
     screen_manager = ObjectProperty(None)
+    # acquisition = ScreenSetting.acquisition
 
     def __init__(self, **kwargs):
         super(ScreenData, self).__init__(**kwargs)
@@ -336,28 +313,66 @@ class ScreenData(BoxLayout):
 
     def regular_check(self, dt):
         global flag_run
+        global dt_time
+        global data_base
+
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#A50000"
+            Clock.schedule_interval(self.measurement_check, dt_time / 1000)
         else:
             self.ids.bt_measure.text = "RUN MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#196BA5"
+            Clock.unschedule(self.measurement_check)            
 
+    def measurement_check(self, dt):
+        global dt_time
+        global data_base
+
+        if("(SP) SELF POTENTIAL" in dt_mode):
+            pass
+
+        elif("(IP) INDUCED POLARIZATION" in dt_mode):
+            pass
+
+        elif("(R) RESISTIVITY" in dt_mode):
+            pass
+
+        elif("(R+IP) COMBINATION" in dt_mode):
+            pass
+                    
+        else:
+            pass
+
+        #data acquisition 
+        voltage = np.random.random_sample()
+        current = np.random.random_sample()
+        resistivity = voltage / current
+        std_voltage = np.std(data_base[0, :])
+        std_current = np.std(data_base[1, :])
+        # print(data_base[0, :])
+
+        data_acquisition = np.array([voltage, current, resistivity, std_voltage, std_current])
+        data_acquisition.resize([5, 1])
+        data_base = np.concatenate([data_base, data_acquisition], axis=1)
+
+        self.data_tables.row_data=[(f"{i + 1}", f"{data_base[0,i]:.3f}", f"{data_base[1,i]:.3f}", f"{data_base[2,i]:.3f}", f"{data_base[3,i]:.3f}", f"{data_base[4,i]:.3f}") for i in range(len(data_base[1]))]
+        # self.data_tables.row_data=[(f"{i + 1}", "1", "2", "3", "4", "5") for i in range(5)]
+        
     def delayed_init(self, dt):
-        print("enter delayed init")
+        # print("enter delayed init")
         layout = self.ids.layout_tables
         
         self.data_tables = MDDataTable(
             use_pagination=True,
             column_data=[
-                ("No.", dp(30)),
-                ("Voltage", dp(30)),
-                ("Current", dp(30)),
-                ("Resistivity", dp(30)),
-                ("Std Dev Voltage", dp(30)),
-                ("Std Dev Current", dp(30)),
+                ("No.", dp(10)),
+                ("Voltage [V]", dp(35)),
+                ("Current [mA]", dp(35)),
+                ("Resistivity [kOhm]", dp(35)),
+                ("Std Dev Voltage", dp(35)),
+                ("Std Dev Current", dp(35)),
             ],
-            row_data=[(f"{i + 1}", "1", "2", "3", "4", "5") for i in range(5)]
         )
         layout.add_widget(self.data_tables)
 
@@ -394,27 +409,84 @@ class ScreenGraph(BoxLayout):
 
     def regular_check(self, dt):
         global flag_run
+        global dt_time
+        global data_base
+
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#A50000"
+            Clock.schedule_interval(self.measurement_check, dt_time / 500)
         else:
             self.ids.bt_measure.text = "RUN MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#196BA5"
+            Clock.unschedule(self.measurement_check)  
+
+    def measurement_check(self, dt):
+        global flag_run
+        global x_datum
+        global y_datum
+        global data_base
+        global data_pos
+
+        # print(dt)
+        # print(data_pos)
+        data_limit = len(data_base[0,:])
+        # print(len(data_base[0,:]))
+        visualized_data_pos = data_pos
+
+        try:
+            self.fig.set_facecolor("#eeeeee")
+            self.fig.tight_layout()
+            l, b, w, h = self.ax.get_position().bounds
+            self.ax.set_position(pos=[l, b + 0.3*h, w*0.9, h*0.7])
+            
+            self.ax.set_xlabel("distance [m]", fontsize=10)
+            self.ax.set_ylabel("depth [m]", fontsize=10)
+            
+            self.ax.set_facecolor("#eeeeee")
+            # self.ax.scatter(x_datum, y_datum, c=c_electrode[0], label=l_electrode[0], marker='o')
+
+            #datum location
+            cmap, norm = mcolors.from_levels_and_colors([0.0, 0.5, 1.0],['green','red'])
+            self.ax.scatter(visualized_data_pos[0,:data_limit], visualized_data_pos[1,:data_limit], c=data_base[0,:data_limit], cmap=cmap, norm=norm, label=l_electrode[0], marker='o')
+            #electrode location
+        
+            self.ax.invert_yaxis()
+            self.ids.layout_graph.clear_widgets()
+            self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))
+
+            print("successfully show graphic")
+        
+        except:
+            print("error show graphic")
+
+        if(data_limit >= len(data_pos[0,:])):
+            self.measure()
 
     def delayed_init(self, dt):
-        print("enter delayed init")
-        
+        # print("enter delayed init")
+
         self.fig, self.ax = plt.subplots()
         self.fig.set_facecolor("#eeeeee")
         self.fig.tight_layout()
-        self.ax.grid(False)
-
-        self.data_colormap = np.zeros((10, 100))
+        l, b, w, h = self.ax.get_position().bounds
+        self.ax.set_position(pos=[l, b + 0.3*h, w, h*0.7])
         
-        clrmesh = self.ax.pcolor(self.data_colormap, cmap='seismic', vmin=-0.1, vmax=0.1)
-        self.fig.colorbar(clrmesh, ax=self.ax, format='%f')
+        self.ax.set_xlabel("distance [m]", fontsize=10)
+        self.ax.set_ylabel("depth [m]", fontsize=10)
 
-        self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))
+        self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))        
+        # self.fig, self.ax = plt.subplots()
+        # self.fig.set_facecolor("#eeeeee")
+        # self.fig.tight_layout()
+        # self.ax.grid(False)
+
+        # self.data_colormap = np.zeros((10, 100))
+        
+        # clrmesh = self.ax.pcolor(self.data_colormap, cmap='seismic', vmin=-0.1, vmax=0.1)
+        # self.fig.colorbar(clrmesh, ax=self.ax, format='%f')
+
+        # self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))
 
     def measure(self):
         global flag_run
