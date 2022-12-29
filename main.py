@@ -21,6 +21,10 @@ from matplotlib.figure import Figure
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from matplotlib.ticker import AutoMinorLocator
 from kivymd.uix.datatables import MDDataTable
+from plyer import filechooser
+from datetime import datetime
+import subprocess
+from pathlib import Path
 
 plt.style.use('bmh')
 
@@ -52,6 +56,10 @@ STEPS = 51
 # MAX_POINT_WENNER = 500
 MAX_POINT = 10000
 ELECTRODES_NUM = 48
+
+BLOCK_DEVICE = Path("/dev/sda1")
+MOUNT_POINT = Path("/mnt")
+MOUNT_COMMAND = ["sudo", "mount", BLOCK_DEVICE, MOUNT_POINT]
 
 x_datum = np.zeros(MAX_POINT)
 y_datum = np.zeros(MAX_POINT)
@@ -222,10 +230,9 @@ class ScreenSetting(BoxLayout):
         self.fig.tight_layout()
         l, b, w, h = self.ax.get_position().bounds
         self.ax.set_position(pos=[l, b + 0.3*h, w*0.9, h*0.7])
-        
         self.ax.set_xlabel("distance [m]", fontsize=10)
         self.ax.set_ylabel("depth [m]", fontsize=10)
-
+       
         self.ax.set_facecolor("#eeeeee")
         # self.ax.scatter(x_datum, y_datum, c=c_electrode[0], label=l_electrode[0], marker='o')
         x_data = np.trim_zeros(x_datum)
@@ -238,9 +245,9 @@ class ScreenSetting(BoxLayout):
         self.ax.scatter(x_electrode[1,0]*dt_distance , 0, c=c_electrode[2], label=l_electrode[2], marker=7)
         self.ax.scatter(x_electrode[2,0]*dt_distance , 0, c=c_electrode[3], label=l_electrode[3], marker=7)
         self.ax.scatter(x_electrode[3,0]*dt_distance , 0, c=c_electrode[4], label=l_electrode[4], marker=7)
-        
+
         self.ax.invert_yaxis()
-        self.ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title="Electrode")
+        self.ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title="Electrode")         
         self.ids.layout_illustration.clear_widgets()
         self.ids.layout_illustration.add_widget(FigureCanvasKivyAgg(self.fig))
         # print(n_electrode)
@@ -325,6 +332,22 @@ class ScreenData(BoxLayout):
             self.ids.bt_measure.md_bg_color = "#196BA5"
             Clock.unschedule(self.measurement_check)            
 
+        if self.should_mount():
+            try:
+                subprocess.check_call(MOUNT_COMMAND)
+                self.ids.bt_save_data.disabled = False
+                print("try mounting")
+            except subprocess.CalledProcessError:
+                print(f"Could not mount {BLOCK_DEVICE} at {MOUNT_POINT}")
+                self.ids.bt_save_data.disabled = True
+            else:
+                self.ids.bt_save_data.disabled = True
+                print("error mounting")
+
+    def should_mount(self):
+        self.ids.bt_save_data.disabled = True
+        return BLOCK_DEVICE.exists() and not MOUNT_POINT.is_mount()       
+
     def measurement_check(self, dt):
         global dt_time
         global data_base
@@ -377,7 +400,14 @@ class ScreenData(BoxLayout):
         layout.add_widget(self.data_tables)
 
     def save_data(self):
-        self.data_tables.row_data=[(f"{i + 1}", "1", "2", "3", "4", "5") for i in range(5)]
+        global data_base
+        try:
+            now = datetime.now().strftime("%d_%m_%Y_%H_%M_%S.dat")
+            with open(now,"wb") as f:
+                np.savetxt(f, data_base.T, fmt="%.3f",delimiter="\t",header="No. \t Voltage [V] \t Current [mA] \t Resistivity [kOhm] \t Std Dev Voltage \t Std Dev Current")
+            print("sucessfully save data")
+        except:
+            print("error saving data")
 
     def measure(self):
         global flag_run
@@ -415,11 +445,25 @@ class ScreenGraph(BoxLayout):
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#A50000"
-            Clock.schedule_interval(self.measurement_check, dt_time / 500)
+            Clock.schedule_interval(self.measurement_check, dt_time / 200)
         else:
             self.ids.bt_measure.text = "RUN MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#196BA5"
             Clock.unschedule(self.measurement_check)  
+
+        if self.should_mount():
+            try:
+                subprocess.check_call(MOUNT_COMMAND)
+                self.ids.bt_save_graph.disabled = False
+            except subprocess.CalledProcessError:
+                print(f"Could not mount {BLOCK_DEVICE} at {MOUNT_POINT}")
+                self.ids.bt_save_graph.disabled = True
+            else:
+                self.ids.bt_save_graph.disabled = True
+
+    def should_mount(self):
+        self.ids.bt_save_graph.disabled = True
+        return BLOCK_DEVICE.exists() and not MOUNT_POINT.is_mount()  
 
     def measurement_check(self, dt):
         global flag_run
@@ -437,12 +481,12 @@ class ScreenGraph(BoxLayout):
         try:
             self.fig.set_facecolor("#eeeeee")
             self.fig.tight_layout()
-            l, b, w, h = self.ax.get_position().bounds
-            self.ax.set_position(pos=[l, b + 0.3*h, w*0.9, h*0.7])
+            # l, b, w, h = self.ax.get_position().bounds
+            # self.ax.set_position(pos=[l, b + 0.1*h, w, h*0.9])
             
             self.ax.set_xlabel("distance [m]", fontsize=10)
             self.ax.set_ylabel("depth [m]", fontsize=10)
-            
+            self.ax.invert_yaxis()
             self.ax.set_facecolor("#eeeeee")
             # self.ax.scatter(x_datum, y_datum, c=c_electrode[0], label=l_electrode[0], marker='o')
 
@@ -450,8 +494,6 @@ class ScreenGraph(BoxLayout):
             cmap, norm = mcolors.from_levels_and_colors([0.0, 0.5, 1.0],['green','red'])
             self.ax.scatter(visualized_data_pos[0,:data_limit], visualized_data_pos[1,:data_limit], c=data_base[0,:data_limit], cmap=cmap, norm=norm, label=l_electrode[0], marker='o')
             #electrode location
-        
-            self.ax.invert_yaxis()
             self.ids.layout_graph.clear_widgets()
             self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))
 
@@ -496,8 +538,13 @@ class ScreenGraph(BoxLayout):
             flag_run = True
 
     def save_graph(self):
-        pass
-
+        try:
+            now = datetime.now().strftime("%d_%m_%Y_%H_%M_%S.jpg")
+            self.fig.savefig(now)
+            print("sucessfully save graph")
+        except:
+            print("error saving graph")
+                
     def screen_setting(self):
         self.screen_manager.current = 'screen_setting'
 
