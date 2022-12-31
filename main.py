@@ -21,7 +21,7 @@ from matplotlib.figure import Figure
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from matplotlib.ticker import AutoMinorLocator
 from kivymd.uix.datatables import MDDataTable
-from plyer import filechooser
+# from plyer import filechooser
 from datetime import datetime
 import subprocess
 from pathlib import Path
@@ -57,9 +57,8 @@ STEPS = 51
 MAX_POINT = 10000
 ELECTRODES_NUM = 48
 
-BLOCK_DEVICE = Path("/dev/sda1")
-MOUNT_POINT = Path("/mnt")
-MOUNT_COMMAND = ["sudo", "mount", BLOCK_DEVICE, MOUNT_POINT]
+DISK_ADDRESS = Path("/media/pi/RESDONGLE/")
+SERIAL_NUMBER = "2301212112233412"
 
 x_datum = np.zeros(MAX_POINT)
 y_datum = np.zeros(MAX_POINT)
@@ -332,21 +331,22 @@ class ScreenData(BoxLayout):
             self.ids.bt_measure.md_bg_color = "#196BA5"
             Clock.unschedule(self.measurement_check)            
 
-        if self.should_mount():
+        if not DISK_ADDRESS.exists():
             try:
-                subprocess.check_call(MOUNT_COMMAND)
-                self.ids.bt_save_data.disabled = False
                 print("try mounting")
-            except subprocess.CalledProcessError:
-                print(f"Could not mount {BLOCK_DEVICE} at {MOUNT_POINT}")
+                serial_file = str(DISK_ADDRESS) + "/serial.key"
+                print(serial_file)
+                with open(serial_file,"r") as f:
+                    serial_number = f.readline()
+                    if serial_number == SERIAL_NUMBER:
+                        print("success, serial number is valid")
+                        self.ids.bt_save_data.disabled = False
+                    else:
+                        print("fail, serial number is invalid")
+                        self.ids.bt_save_data.disabled = True                    
+            except:
+                print(f"Could not mount {DISK_ADDRESS}")
                 self.ids.bt_save_data.disabled = True
-            else:
-                self.ids.bt_save_data.disabled = True
-                print("error mounting")
-
-    def should_mount(self):
-        self.ids.bt_save_data.disabled = True
-        return BLOCK_DEVICE.exists() and not MOUNT_POINT.is_mount()       
 
     def measurement_check(self, dt):
         global dt_time
@@ -402,8 +402,9 @@ class ScreenData(BoxLayout):
     def save_data(self):
         global data_base
         try:
-            now = datetime.now().strftime("%d_%m_%Y_%H_%M_%S.dat")
-            with open(now,"wb") as f:
+            now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
+            disk = str(DISK_ADDRESS) + now
+            with open(disk,"wb") as f:
                 np.savetxt(f, data_base.T, fmt="%.3f",delimiter="\t",header="No. \t Voltage [V] \t Current [mA] \t Resistivity [kOhm] \t Std Dev Voltage \t Std Dev Current")
             print("sucessfully save data")
         except:
@@ -451,20 +452,23 @@ class ScreenGraph(BoxLayout):
             self.ids.bt_measure.md_bg_color = "#196BA5"
             Clock.unschedule(self.measurement_check)  
 
-        if self.should_mount():
+        if not DISK_ADDRESS.exists():
             try:
-                subprocess.check_call(MOUNT_COMMAND)
-                self.ids.bt_save_graph.disabled = False
-            except subprocess.CalledProcessError:
-                print(f"Could not mount {BLOCK_DEVICE} at {MOUNT_POINT}")
+                print("try mounting")
+                serial_file = str(DISK_ADDRESS) + "/serial.key"
+                print(serial_file)
+                with open(serial_file,"r") as f:
+                    serial_number = f.readline()
+                    if serial_number == SERIAL_NUMBER:
+                        print("success, serial number is valid")
+                        self.ids.bt_save_graph.disabled = False
+                    else:
+                        print("fail, serial number is invalid")
+                        self.ids.bt_save_graph.disabled = True                    
+            except:
+                print(f"Could not mount {DISK_ADDRESS}")
                 self.ids.bt_save_graph.disabled = True
-            else:
-                self.ids.bt_save_graph.disabled = True
-
-    def should_mount(self):
-        self.ids.bt_save_graph.disabled = True
-        return BLOCK_DEVICE.exists() and not MOUNT_POINT.is_mount()  
-
+                
     def measurement_check(self, dt):
         global flag_run
         global x_datum
@@ -539,8 +543,9 @@ class ScreenGraph(BoxLayout):
 
     def save_graph(self):
         try:
-            now = datetime.now().strftime("%d_%m_%Y_%H_%M_%S.jpg")
-            self.fig.savefig(now)
+            now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
+            disk = str(DISK_ADDRESS) + now
+            self.fig.savefig(disk)
             print("sucessfully save graph")
         except:
             print("error saving graph")
