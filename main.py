@@ -3,14 +3,11 @@ import kivy
 import sys
 import os
 from kivymd.app import MDApp
+from kivymd.toast import toast
 from kivymd.uix.datatables import MDDataTable
 from kivy.lang import Builder
 from kivy.core.window import Window
-from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.image import Image
-from kivy.animation import Animation
-from kivymd.theming import ThemableBehavior
 from kivy.clock import Clock
 from kivy.config import Config
 from kivy.metrics import dp
@@ -20,7 +17,7 @@ import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from matplotlib.ticker import AutoMinorLocator
-from kivymd.uix.datatables import MDDataTable
+
 # from plyer import filechooser
 from datetime import datetime
 from pathlib import Path
@@ -111,7 +108,7 @@ class ScreenSetting(BoxLayout):
     def __init__(self, **kwargs):
         super(ScreenSetting, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check, 1)
+        Clock.schedule_interval(self.regular_check, 2)
 
     def regular_check(self, dt):
         global flag_run
@@ -306,7 +303,8 @@ class ScreenSetting(BoxLayout):
 
     def exec_shutdown(self):
         # os.system("shutdown /s /t 1") #for windows os
-        os.system("shutdown -h now")
+        toast("shutting down system")
+        os.system("shutdown -h 1")
 
 class ScreenData(BoxLayout):
     screen_manager = ObjectProperty(None)
@@ -315,7 +313,7 @@ class ScreenData(BoxLayout):
     def __init__(self, **kwargs):
         super(ScreenData, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check, 1)
+        Clock.schedule_interval(self.regular_check, 2)
 
     def regular_check(self, dt):
         global flag_run
@@ -325,7 +323,7 @@ class ScreenData(BoxLayout):
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#A50000"
-            Clock.schedule_interval(self.measurement_check, dt_time / 1000)
+            Clock.schedule_interval(self.measurement_check, dt_time / 1000 * 4)
         else:
             self.ids.bt_measure.text = "RUN MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#196BA5"
@@ -379,6 +377,10 @@ class ScreenData(BoxLayout):
         data_acquisition.resize([5, 1])
         data_base = np.concatenate([data_base, data_acquisition], axis=1)
 
+        self.ids.realtime_voltage.text = f"{voltage:.3f}"
+        self.ids.realtime_current.text = f"{current:.3f}"
+        self.ids.realtime_resistivity.text = f"{resistivity:.3f}"
+
         self.data_tables.row_data=[(f"{i + 1}", f"{data_base[0,i]:.3f}", f"{data_base[1,i]:.3f}", f"{data_base[2,i]:.3f}", f"{data_base[3,i]:.3f}", f"{data_base[4,i]:.3f}") for i in range(len(data_base[1]))]
         # self.data_tables.row_data=[(f"{i + 1}", "1", "2", "3", "4", "5") for i in range(5)]
         
@@ -407,8 +409,10 @@ class ScreenData(BoxLayout):
             with open(disk,"wb") as f:
                 np.savetxt(f, data_base.T, fmt="%.3f",delimiter="\t",header="No. \t Voltage [V] \t Current [mA] \t Resistivity [kOhm] \t Std Dev Voltage \t Std Dev Current")
             print("sucessfully save data")
+            toast("sucessfully save data")
         except:
             print("error saving data")
+            toast("error saving data")
 
     def measure(self):
         global flag_run
@@ -428,7 +432,8 @@ class ScreenData(BoxLayout):
 
     def exec_shutdown(self):
         # os.system("shutdown /s /t 1") #for windows os
-        os.system("shutdown -h now")
+        toast("shutting down system")
+        os.system("shutdown -h 1")
 
 class ScreenGraph(BoxLayout):
     screen_manager = ObjectProperty(None)
@@ -437,7 +442,7 @@ class ScreenGraph(BoxLayout):
     def __init__(self, **kwargs):
         super(ScreenGraph, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check, 1)
+        Clock.schedule_interval(self.regular_check, 2)
 
     def regular_check(self, dt):
         global flag_run
@@ -447,7 +452,7 @@ class ScreenGraph(BoxLayout):
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#A50000"
-            Clock.schedule_interval(self.measurement_check, dt_time / 200)
+            Clock.schedule_interval(self.measurement_check, dt_time / 100)
         else:
             self.ids.bt_measure.text = "RUN MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#196BA5"
@@ -503,9 +508,11 @@ class ScreenGraph(BoxLayout):
             self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))
 
             print("successfully show graphic")
+            toast("successfully show graphic")
         
         except:
             print("error show graphic")
+            toast("error show graphic")
 
         if(data_limit >= len(data_pos[0,:])):
             self.measure()
@@ -548,8 +555,10 @@ class ScreenGraph(BoxLayout):
             disk = str(DISK_ADDRESS) + now
             self.fig.savefig(disk)
             print("sucessfully save graph")
+            toast("sucessfully save graph")
         except:
             print("error saving graph")
+            toast("error saving graph")
                 
     def screen_setting(self):
         self.screen_manager.current = 'screen_setting'
@@ -562,7 +571,8 @@ class ScreenGraph(BoxLayout):
 
     def exec_shutdown(self):
         # os.system("shutdown /s /t 1") #for windows os
-        os.system("shutdown -h now")
+        toast("shutting down system")
+        os.system("shutdown -h 1")
 
 class ResistivityMeterApp(MDApp):
     def build(self):
