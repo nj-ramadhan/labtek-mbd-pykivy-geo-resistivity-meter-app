@@ -23,7 +23,6 @@ from matplotlib.ticker import AutoMinorLocator
 from kivymd.uix.datatables import MDDataTable
 # from plyer import filechooser
 from datetime import datetime
-import subprocess
 from pathlib import Path
 
 plt.style.use('bmh')
@@ -306,7 +305,8 @@ class ScreenSetting(BoxLayout):
         self.screen_manager.current = 'screen_graph'
 
     def exec_shutdown(self):
-        os.system("shutdown /s /t 1")
+        # os.system("shutdown /s /t 1") #for windows os
+        os.system("shutdown -h now")
 
 class ScreenData(BoxLayout):
     screen_manager = ObjectProperty(None)
@@ -393,8 +393,8 @@ class ScreenData(BoxLayout):
                 ("Voltage [V]", dp(35)),
                 ("Current [mA]", dp(35)),
                 ("Resistivity [kOhm]", dp(35)),
-                ("Std Dev Voltage", dp(35)),
-                ("Std Dev Current", dp(35)),
+                ("Std Dev Resistivity", dp(35)),
+                ("IP (R decay)", dp(35)),
             ],
         )
         layout.add_widget(self.data_tables)
@@ -427,7 +427,8 @@ class ScreenData(BoxLayout):
         self.screen_manager.current = 'screen_graph'
 
     def exec_shutdown(self):
-        os.system("shutdown /s /t 1")
+        # os.system("shutdown /s /t 1") #for windows os
+        os.system("shutdown -h now")
 
 class ScreenGraph(BoxLayout):
     screen_manager = ObjectProperty(None)
@@ -560,7 +561,8 @@ class ScreenGraph(BoxLayout):
         self.screen_manager.current = 'screen_graph'
 
     def exec_shutdown(self):
-        os.system("shutdown /s /t 1")
+        # os.system("shutdown /s /t 1") #for windows os
+        os.system("shutdown -h now")
 
 class ResistivityMeterApp(MDApp):
     def build(self):
