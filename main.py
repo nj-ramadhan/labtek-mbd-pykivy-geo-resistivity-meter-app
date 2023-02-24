@@ -22,6 +22,12 @@ from matplotlib.ticker import AutoMinorLocator
 from datetime import datetime
 from pathlib import Path
 
+# gPIO control and sensor acquisiton
+import RPi.GPIO as GPIO
+from ina219c import INA219 as read_c
+from ina219p import INA219 as read_p
+import threading
+
 plt.style.use('bmh')
 
 colors = {
@@ -53,6 +59,17 @@ STEPS = 51
 MAX_POINT = 10000
 ELECTRODES_NUM = 48
 
+SHUNT_OHMS = 0.1
+MAX_EXPECTED_AMPS = 0.2
+
+PIN_FWD = 16
+PIN_REV = 18
+
+GPIO.cleanup
+GPIO.setmode(GPIO.BOARD)
+GPIO.setup(PIN_FWD, GPIO.OUT)
+GPIO.setup(PIN_REV, GPIO.OUT)
+
 DISK_ADDRESS = Path("/media/pi/RESDONGLE/")
 SERIAL_NUMBER = "2301212112233412"
 
@@ -75,7 +92,10 @@ dt_time = 500
 dt_cycle = 1
 
 dt_measure = np.zeros(6)
+dt_current = np.zeros(10)
+dt_voltage = np.zeros(10)
 flag_run = False
+inject_state = 0
 
 class ScreenSplash(BoxLayout):
 # class ScreenSplash(Screen):
@@ -304,7 +324,7 @@ class ScreenSetting(BoxLayout):
     def exec_shutdown(self):
         # os.system("shutdown /s /t 1") #for windows os
         toast("shutting down system")
-        os.system("shutdown -h 1")
+        os.system("shutdown -h now")
 
 class ScreenData(BoxLayout):
     screen_manager = ObjectProperty(None)
@@ -324,11 +344,18 @@ class ScreenData(BoxLayout):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#A50000"
             Clock.schedule_interval(self.measurement_check, dt_time / 1000 * 4)
+            Clock.schedule_interval(self.inject_current, dt_time / 1000)
+            Clock.schedule_interval(self.measurement_sampling, dt_time / 10000)
         else:
             self.ids.bt_measure.text = "RUN MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#196BA5"
-            Clock.unschedule(self.measurement_check)            
-
+            Clock.unschedule(self.measurement_check)
+            Clock.unschedule(self.inject_current)
+            Clock.unschedule(self.measurement_sampling)
+            GPIO.output(PIN_FWD, GPIO.LOW)
+            GPIO.output(PIN_REV, GPIO.LOW)
+            inject_state = 0
+            
         if not DISK_ADDRESS.exists():
             try:
                 print("try mounting")
@@ -349,6 +376,8 @@ class ScreenData(BoxLayout):
     def measurement_check(self, dt):
         global dt_time
         global data_base
+        global dt_current
+        global dt_voltage
 
         if("(SP) SELF POTENTIAL" in dt_mode):
             pass
@@ -365,15 +394,28 @@ class ScreenData(BoxLayout):
         else:
             pass
 
-        #data acquisition 
-        voltage = np.random.random_sample()
-        current = np.random.random_sample()
-        resistivity = voltage / current
-        std_voltage = np.std(data_base[0, :])
-        std_current = np.std(data_base[1, :])
+        #voltage = np.random.random_sample()
+        #current = np.random.random_sample()
+        #voltage = ina_p.voltage()
+        #current = ina_c.current()
+        voltage = np.amax(np.fabs(dt_voltage))
+        current = np.amax(np.fabs(dt_current))
+        if(current > 0.0):
+            resistivity = voltage / current
+        else:
+            resistivity = 0
+            
+        std_resistivity = np.std(data_base[2, :])
+        ip_decay = (np.sum(dt_voltage) / voltage ) * (dt_time/10000)
+        #std_current = np.std(data_base[1, :])
         # print(data_base[0, :])
+        #str_dt_voltage = np.array2string(dt_voltage, formatter={'float_kind':lambda dt_voltage:"%.2f" % dt_voltage})
+        #str_dt_current = np.array2string(dt_current, formatter={'float_kind':lambda dt_current:"%.2f" % dt_current})
+        #str_toast = "v:" + str_dt_voltage + ", c:" + str_dt_current
+        #toast(str_toast)
 
-        data_acquisition = np.array([voltage, current, resistivity, std_voltage, std_current])
+
+        data_acquisition = np.array([voltage, current, resistivity, std_resistivity, ip_decay])
         data_acquisition.resize([5, 1])
         data_base = np.concatenate([data_base, data_acquisition], axis=1)
 
@@ -383,7 +425,57 @@ class ScreenData(BoxLayout):
 
         self.data_tables.row_data=[(f"{i + 1}", f"{data_base[0,i]:.3f}", f"{data_base[1,i]:.3f}", f"{data_base[2,i]:.3f}", f"{data_base[3,i]:.3f}", f"{data_base[4,i]:.3f}") for i in range(len(data_base[1]))]
         # self.data_tables.row_data=[(f"{i + 1}", "1", "2", "3", "4", "5") for i in range(5)]
+
+    def inject_current(self, dt):
+        global inject_state
         
+        inject_state += 1
+        
+        if(inject_state == 0):
+            GPIO.output(PIN_FWD, GPIO.LOW)
+            GPIO.output(PIN_REV, GPIO.LOW)
+            toast("not injecting current")
+            
+        elif(inject_state == 1):
+            GPIO.output(PIN_FWD, GPIO.HIGH)
+            GPIO.output(PIN_REV, GPIO.LOW)
+            toast("inject positive current")
+            
+        elif(inject_state == 2):
+            GPIO.output(PIN_FWD, GPIO.LOW)
+            GPIO.output(PIN_REV, GPIO.LOW)
+            toast("not injecting current")
+            
+        elif(inject_state == 3):
+            GPIO.output(PIN_FWD, GPIO.LOW)
+            GPIO.output(PIN_REV, GPIO.HIGH)
+            toast("inject negative current")
+            
+        if(inject_state > 3):
+            GPIO.output(PIN_FWD, GPIO.LOW)
+            GPIO.output(PIN_REV, GPIO.LOW)
+            inject_state = 0
+
+    def measurement_sampling(self, dt):
+        global dt_current
+        global dt_voltage
+        #data acquisition
+        ina_c = read_c(SHUNT_OHMS, MAX_EXPECTED_AMPS)
+        ina_c.configure(ina_c.RANGE_16V, ina_c.GAIN_AUTO)
+
+        ina_p = read_c(SHUNT_OHMS, MAX_EXPECTED_AMPS)
+        ina_p.configure(ina_p.RANGE_16V, ina_p.GAIN_AUTO)
+        
+        dt_temp = np.empty_like(dt_voltage)
+        dt_temp[:1] = ina_p.voltage()
+        dt_temp[1:] = dt_voltage[:-1]
+        dt_voltage = dt_temp
+        
+        dt_temp = np.empty_like(dt_current)
+        dt_temp[:1] = ina_c.current()
+        dt_temp[1:] = dt_current[:-1]
+        dt_current = dt_temp       
+
     def delayed_init(self, dt):
         # print("enter delayed init")
         layout = self.ids.layout_tables
