@@ -22,11 +22,10 @@ from matplotlib.ticker import AutoMinorLocator
 from datetime import datetime
 from pathlib import Path
 
-# gPIO control and sensor acquisiton
-import RPi.GPIO as GPIO
-from ina219c import INA219 as read_c
-from ina219p import INA219 as read_p
-import threading
+# GPIO control and sensor acquisiton
+# import RPi.GPIO as GPIO
+# from ina219c import INA219 as read_c
+# from ina219p import INA219 as read_p
 
 plt.style.use('bmh')
 
@@ -42,12 +41,21 @@ colors = {
         "500": "#196BA5",
         "700": "#196BA5",
     },
+
     "Light": {
         "StatusBar": "E0E0E0",
         "AppBar": "#202020",
         "Background": "#EEEEEE",
         "CardsDialogs": "#FFFFFF",
         "FlatButtonDown": "#CCCCCC",
+    },
+
+    "Dark": {
+        "StatusBar": "101010",
+        "AppBar": "#E0E0E0",
+        "Background": "#111111",
+        "CardsDialogs": "#000000",
+        "FlatButtonDown": "#333333",
     },
 }
 
@@ -65,10 +73,10 @@ MAX_EXPECTED_AMPS = 0.2
 PIN_FWD = 16
 PIN_REV = 18
 
-GPIO.cleanup
-GPIO.setmode(GPIO.BOARD)
-GPIO.setup(PIN_FWD, GPIO.OUT)
-GPIO.setup(PIN_REV, GPIO.OUT)
+# GPIO.cleanup
+# GPIO.setmode(GPIO.BOARD)
+# GPIO.setup(PIN_FWD, GPIO.OUT)
+# GPIO.setup(PIN_REV, GPIO.OUT)
 
 DISK_ADDRESS = Path("/media/pi/RESDONGLE/")
 SERIAL_NUMBER = "2301212112233412"
@@ -95,6 +103,8 @@ dt_measure = np.zeros(6)
 dt_current = np.zeros(10)
 dt_voltage = np.zeros(10)
 flag_run = False
+flag_dongle = True
+count_mounting = 0
 inject_state = 0
 
 class ScreenSplash(BoxLayout):
@@ -140,6 +150,8 @@ class ScreenSetting(BoxLayout):
             self.ids.bt_measure.md_bg_color = "#196BA5"
 
     def delayed_init(self, dt):
+        self.ids.mode_ves.active = True
+
         self.fig, self.ax = plt.subplots()
         self.fig.set_facecolor("#eeeeee")
         self.fig.tight_layout()
@@ -147,7 +159,7 @@ class ScreenSetting(BoxLayout):
         self.ax.set_position(pos=[l, b + 0.3*h, w, h*0.7])
         
         self.ax.set_xlabel("distance [m]", fontsize=10)
-        self.ax.set_ylabel("depth [m]", fontsize=10)
+        self.ax.set_ylabel("n", fontsize=10)
 
         self.ids.layout_illustration.add_widget(FigureCanvasKivyAgg(self.fig))
 
@@ -172,7 +184,37 @@ class ScreenSetting(BoxLayout):
         x_datum = np.zeros(MAX_POINT)
         y_datum = np.zeros(MAX_POINT)
 
-        if("WENNER" in dt_config):
+        if("WENNER (ALPHA)" in dt_config):
+            num_step = 0
+            num_trial = 1
+            for multiplier in range(dt_constant):
+                for pos_el in range(ELECTRODES_NUM - 3 * num_trial):
+                    x_electrode[0, num_step] = pos_el
+                    x_electrode[1, num_step] = num_trial + x_electrode[0, num_step]
+                    x_electrode[2, num_step] = num_trial + x_electrode[1, num_step]
+                    x_electrode[3, num_step] = num_trial + x_electrode[2, num_step]
+                    x_datum[num_step] = (x_electrode[1, num_step] + (x_electrode[2, num_step] - x_electrode[1, num_step])/2) * dt_distance
+                    y_datum[num_step] = (multiplier + 1) * dt_distance
+                    # print("x:"+ str(x_datum[num_step]) + " y:"+ str(y_datum[num_step]))
+                    num_step += 1
+                num_trial += 1
+
+        elif("WENNER (BETA)" in dt_config):
+            num_step = 0
+            num_trial = 1
+            for multiplier in range(dt_constant):
+                for pos_el in range(ELECTRODES_NUM - 3 * num_trial):
+                    x_electrode[0, num_step] = pos_el
+                    x_electrode[1, num_step] = num_trial + x_electrode[0, num_step]
+                    x_electrode[2, num_step] = num_trial + x_electrode[1, num_step]
+                    x_electrode[3, num_step] = num_trial + x_electrode[2, num_step]
+                    x_datum[num_step] = (x_electrode[1, num_step] + (x_electrode[2, num_step] - x_electrode[1, num_step])/2) * dt_distance
+                    y_datum[num_step] = (multiplier + 1) * dt_distance
+                    # print("x:"+ str(x_datum[num_step]) + " y:"+ str(y_datum[num_step]))
+                    num_step += 1
+                num_trial += 1
+
+        if("WENNER (GAMMA)" in dt_config):
             num_step = 0
             num_trial = 1
             for multiplier in range(dt_constant):
@@ -246,7 +288,7 @@ class ScreenSetting(BoxLayout):
         l, b, w, h = self.ax.get_position().bounds
         self.ax.set_position(pos=[l, b + 0.3*h, w*0.9, h*0.7])
         self.ax.set_xlabel("distance [m]", fontsize=10)
-        self.ax.set_ylabel("depth [m]", fontsize=10)
+        self.ax.set_ylabel("n", fontsize=10)
        
         self.ax.set_facecolor("#eeeeee")
         # self.ax.scatter(x_datum, y_datum, c=c_electrode[0], label=l_electrode[0], marker='o')
@@ -337,26 +379,46 @@ class ScreenData(BoxLayout):
 
     def regular_check(self, dt):
         global flag_run
+        global flag_dongle
+        global count_mounting
         global dt_time
+        global dt_cycle
         global data_base
+        global inject_state
 
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#A50000"
-            Clock.schedule_interval(self.measurement_check, dt_time / 1000 * 4)
-            Clock.schedule_interval(self.inject_current, dt_time / 1000)
-            Clock.schedule_interval(self.measurement_sampling, dt_time / 10000)
+            Clock.schedule_interval(self.measurement_check, 4 * dt_cycle * dt_time / 1000)
+            # Clock.schedule_interval(self.inject_current, dt_time / 1000)
+            # Clock.schedule_interval(self.measurement_sampling, dt_time / 10000)
+            if("(VES) VERTICAL ELECTRICAL SOUNDING" in dt_mode):
+                Clock.schedule_interval(self.inject_current, dt_time / 1000)
+        
+            elif("(SP) SELF POTENTIAL" in dt_mode):
+                pass
+
+            elif("(R) RESISTIVITY" in dt_mode):
+                Clock.schedule_interval(self.inject_current, dt_time / 1000)
+
+            elif("(R+IP) INDUCED POLARIZATION" in dt_mode):
+                Clock.schedule_interval(self.inject_current, dt_time / 1000)
+                        
+            else:
+                pass
+            
+
         else:
             self.ids.bt_measure.text = "RUN MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#196BA5"
             Clock.unschedule(self.measurement_check)
             Clock.unschedule(self.inject_current)
-            Clock.unschedule(self.measurement_sampling)
-            GPIO.output(PIN_FWD, GPIO.LOW)
-            GPIO.output(PIN_REV, GPIO.LOW)
+            # Clock.unschedule(self.measurement_sampling)
+            # GPIO.output(PIN_FWD, GPIO.LOW)
+            # GPIO.output(PIN_REV, GPIO.LOW)
             inject_state = 0
             
-        if not DISK_ADDRESS.exists():
+        if not DISK_ADDRESS.exists() and flag_dongle:
             try:
                 print("try mounting")
                 serial_file = str(DISK_ADDRESS) + "/serial.key"
@@ -372,27 +434,15 @@ class ScreenData(BoxLayout):
             except:
                 print(f"Could not mount {DISK_ADDRESS}")
                 self.ids.bt_save_data.disabled = True
+                count_mounting += 1
+                if(count_mounting > 10):
+                    flag_dongle = False 
 
     def measurement_check(self, dt):
         global dt_time
         global data_base
         global dt_current
         global dt_voltage
-
-        if("(SP) SELF POTENTIAL" in dt_mode):
-            pass
-
-        elif("(IP) INDUCED POLARIZATION" in dt_mode):
-            pass
-
-        elif("(R) RESISTIVITY" in dt_mode):
-            pass
-
-        elif("(R+IP) COMBINATION" in dt_mode):
-            pass
-                    
-        else:
-            pass
 
         #voltage = np.random.random_sample()
         #current = np.random.random_sample()
@@ -432,47 +482,52 @@ class ScreenData(BoxLayout):
         inject_state += 1
         
         if(inject_state == 0):
-            GPIO.output(PIN_FWD, GPIO.LOW)
-            GPIO.output(PIN_REV, GPIO.LOW)
-            toast("not injecting current")
+            # GPIO.output(PIN_FWD, GPIO.LOW)
+            # GPIO.output(PIN_REV, GPIO.LOW)
+            # toast("not injecting current")
+            Clock.schedule_interval(self.measurement_sampling, dt_time / 10000)
             
         elif(inject_state == 1):
-            GPIO.output(PIN_FWD, GPIO.HIGH)
-            GPIO.output(PIN_REV, GPIO.LOW)
-            toast("inject positive current")
+            # GPIO.output(PIN_FWD, GPIO.HIGH)
+            # GPIO.output(PIN_REV, GPIO.LOW)
+            # toast("inject positive current")
+            Clock.unschedule(self.measurement_sampling)
             
         elif(inject_state == 2):
-            GPIO.output(PIN_FWD, GPIO.LOW)
-            GPIO.output(PIN_REV, GPIO.LOW)
-            toast("not injecting current")
+            # GPIO.output(PIN_FWD, GPIO.LOW)
+            # GPIO.output(PIN_REV, GPIO.LOW)
+            # toast("not injecting current")
+            Clock.schedule_interval(self.measurement_sampling, dt_time / 10000)
             
         elif(inject_state == 3):
-            GPIO.output(PIN_FWD, GPIO.LOW)
-            GPIO.output(PIN_REV, GPIO.HIGH)
-            toast("inject negative current")
+            # GPIO.output(PIN_FWD, GPIO.LOW)
+            # GPIO.output(PIN_REV, GPIO.HIGH)
+            # toast("inject negative current")
+            Clock.unschedule(self.measurement_sampling)
             
-        if(inject_state > 3):
-            GPIO.output(PIN_FWD, GPIO.LOW)
-            GPIO.output(PIN_REV, GPIO.LOW)
+        else:
+            # GPIO.output(PIN_FWD, GPIO.LOW)
+            # GPIO.output(PIN_REV, GPIO.LOW)
             inject_state = 0
+            Clock.unschedule(self.measurement_sampling)
 
     def measurement_sampling(self, dt):
         global dt_current
         global dt_voltage
-        #data acquisition
-        ina_c = read_c(SHUNT_OHMS, MAX_EXPECTED_AMPS)
-        ina_c.configure(ina_c.RANGE_16V, ina_c.GAIN_AUTO)
+        # Data acquisition
+        # ina_c = read_c(SHUNT_OHMS, MAX_EXPECTED_AMPS)
+        # ina_c.configure(ina_c.RANGE_16V, ina_c.GAIN_AUTO)
 
-        ina_p = read_c(SHUNT_OHMS, MAX_EXPECTED_AMPS)
-        ina_p.configure(ina_p.RANGE_16V, ina_p.GAIN_AUTO)
+        # ina_p = read_p(SHUNT_OHMS, MAX_EXPECTED_AMPS)
+        # ina_p.configure(ina_p.RANGE_16V, ina_p.GAIN_AUTO)
         
         dt_temp = np.empty_like(dt_voltage)
-        dt_temp[:1] = ina_p.voltage()
+        # dt_temp[:1] = ina_p.voltage()
         dt_temp[1:] = dt_voltage[:-1]
         dt_voltage = dt_temp
         
         dt_temp = np.empty_like(dt_current)
-        dt_temp[:1] = ina_c.current()
+        # dt_temp[:1] = ina_c.current()
         dt_temp[1:] = dt_current[:-1]
         dt_current = dt_temp       
 
@@ -525,7 +580,7 @@ class ScreenData(BoxLayout):
     def exec_shutdown(self):
         # os.system("shutdown /s /t 1") #for windows os
         toast("shutting down system")
-        os.system("shutdown -h 1")
+        os.system("shutdown -h now")
 
 class ScreenGraph(BoxLayout):
     screen_manager = ObjectProperty(None)
@@ -538,6 +593,8 @@ class ScreenGraph(BoxLayout):
 
     def regular_check(self, dt):
         global flag_run
+        global flag_dongle
+        global count_mounting
         global dt_time
         global data_base
 
@@ -549,8 +606,8 @@ class ScreenGraph(BoxLayout):
             self.ids.bt_measure.text = "RUN MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#196BA5"
             Clock.unschedule(self.measurement_check)  
-
-        if not DISK_ADDRESS.exists():
+               
+        if not DISK_ADDRESS.exists() and flag_dongle:
             try:
                 print("try mounting")
                 serial_file = str(DISK_ADDRESS) + "/serial.key"
@@ -566,7 +623,10 @@ class ScreenGraph(BoxLayout):
             except:
                 print(f"Could not mount {DISK_ADDRESS}")
                 self.ids.bt_save_graph.disabled = True
-                
+                count_mounting += 1
+                if(count_mounting > 10):
+                    flag_dongle = False 
+
     def measurement_check(self, dt):
         global flag_run
         global x_datum
@@ -587,7 +647,7 @@ class ScreenGraph(BoxLayout):
             # self.ax.set_position(pos=[l, b + 0.1*h, w, h*0.9])
             
             self.ax.set_xlabel("distance [m]", fontsize=10)
-            self.ax.set_ylabel("depth [m]", fontsize=10)
+            self.ax.set_ylabel("n", fontsize=10)
             self.ax.invert_yaxis()
             self.ax.set_facecolor("#eeeeee")
             # self.ax.scatter(x_datum, y_datum, c=c_electrode[0], label=l_electrode[0], marker='o')
@@ -600,11 +660,11 @@ class ScreenGraph(BoxLayout):
             self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))
 
             print("successfully show graphic")
-            toast("successfully show graphic")
+            # toast("successfully show graphic")
         
         except:
             print("error show graphic")
-            toast("error show graphic")
+            # toast("error show graphic")
 
         if(data_limit >= len(data_pos[0,:])):
             self.measure()
@@ -619,7 +679,7 @@ class ScreenGraph(BoxLayout):
         self.ax.set_position(pos=[l, b + 0.3*h, w, h*0.7])
         
         self.ax.set_xlabel("distance [m]", fontsize=10)
-        self.ax.set_ylabel("depth [m]", fontsize=10)
+        self.ax.set_ylabel("n", fontsize=10)
 
         self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))        
         # self.fig, self.ax = plt.subplots()

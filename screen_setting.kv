@@ -48,6 +48,101 @@
 
 				BoxLayout:
 					orientation: "vertical"
+					size_hint_x: 1
+					canvas.before:
+						Color:
+							rgba: 0.5, 0, 0, 1
+						Line:
+							width: 2
+							rectangle: self.x, self.y, self.width, self.height
+
+					Label:
+						text: "MEASUREMENT MODE"
+						bold: True
+						font_size: 16
+						color: 0, 0, 0
+						size_hint_y: 0.25
+
+					Label:
+						text: ""
+						size_hint_y: 0.1
+
+					GridLayout:
+						cols:2
+						row_force_default: True
+						row_default_height: 25
+
+						MDCheckbox:
+							group: "mode"
+							id: mode_ves
+							size_hint_x: None
+							width: 60
+							on_active: root.checkbox_mode_click(self, self.active, "(VES) VERTICAL ELECTRICAL SOUNDING")
+							
+						Label:
+							text: "(VES) VERTICAL ELECTRICAL SOUNDING"
+							text_size: self.size
+							halign: "left"
+							valign: "middle"
+							font_size:12
+							color: 0, 0, 0
+
+
+						MDCheckbox:
+							group: "mode"
+							id: mode_sp
+							size_hint_x: None
+							width: 60
+							on_active: root.checkbox_mode_click(self, self.active, "(SP) SELF POTENTIAL")
+
+						Label:
+							text: "(SP) SELF POTENTIAL"
+							text_size: self.size
+							halign: "left"
+							valign: "middle"
+							font_size:12
+							color: 0, 0, 0
+
+						MDCheckbox:
+							group: "mode"
+							id: mode_r
+							size_hint_x: None
+							width: 60
+							on_active: root.checkbox_mode_click(self, self.active, "(R) RESISTIVITY")		
+
+						Label:
+							text: "(R) RESISTIVITY"
+							text_size: self.size
+							halign: "left"
+							valign: "middle"
+							font_size:12
+							color: 0, 0, 0
+
+						MDCheckbox:
+							group: "mode"
+							id: mode_rip
+							size_hint_x: None
+							width: 60
+							on_active: root.checkbox_mode_click(self, self.active, "(R+IP) INDUCED POLARIZATION")		
+
+						Label:
+							text: "(R+IP) INDUCED POLARIZATION"
+							text_size: self.size
+							halign: "left"
+							valign: "middle"
+							font_size:12
+							color: 0, 0, 0
+
+					Label:
+						id: output_mode_label
+						text: ""
+						bold: True
+						font_size:12
+						color: 0, 0, 0
+						size_hint_y: 0.7
+
+				BoxLayout:
+					orientation: "vertical"
 					size_hint_x: 0.8
 					canvas.before:
 						Color:
@@ -70,16 +165,44 @@
 					GridLayout:
 						cols:2
 						row_force_default: True
-						row_default_height: 40
+						row_default_height: 25
 
 						MDCheckbox:
 							group: "config"
 							size_hint_x: None
 							width: 60
-							on_active: root.checkbox_config_click(self, self.active, "WENNER")
+							on_active: root.checkbox_config_click(self, self.active, "WENNER (ALPHA)")
 
 						Label:
-							text: "WENNER"
+							text: "WENNER (ALPHA)"
+							text_size: self.size
+							halign: "left"
+							valign: "middle"
+							font_size:12
+							color: 0, 0, 0
+
+						MDCheckbox:
+							group: "config"
+							size_hint_x: None
+							width: 60
+							on_active: root.checkbox_config_click(self, self.active, "WENNER (BETA)")
+
+						Label:
+							text: "WENNER (BETA)"
+							text_size: self.size
+							halign: "left"
+							valign: "middle"
+							font_size:12
+							color: 0, 0, 0
+
+						MDCheckbox:
+							group: "config"
+							size_hint_x: None
+							width: 60
+							on_active: root.checkbox_config_click(self, self.active, "WENNER (GAMMA)")
+
+						Label:
+							text: "WENNER (GAMMA)"
 							text_size: self.size
 							halign: "left"
 							valign: "middle"
@@ -116,96 +239,6 @@
 
 					Label:
 						id: output_config_label
-						text: ""
-						bold: True
-						font_size:12
-						color: 0, 0, 0
-						size_hint_y: 0.7
-
-				BoxLayout:
-					orientation: "vertical"
-					size_hint_x: 0.8
-					canvas.before:
-						Color:
-							rgba: 0.5, 0, 0, 1
-						Line:
-							width: 2
-							rectangle: self.x, self.y, self.width, self.height
-
-					Label:
-						text: "MEASUREMENT MODE"
-						bold: True
-						font_size: 16
-						color: 0, 0, 0
-						size_hint_y: 0.25
-
-					Label:
-						text: ""
-						size_hint_y: 0.1
-
-					GridLayout:
-						cols:2
-						row_force_default: True
-						row_default_height: 25
-
-						MDCheckbox:
-							group: "mode"
-							size_hint_x: None
-							width: 60
-							on_active: root.checkbox_mode_click(self, self.active, "(SP) SELF POTENTIAL")
-
-						Label:
-							text: "(SP) SELF POTENTIAL"
-							text_size: self.size
-							halign: "left"
-							valign: "middle"
-							font_size:12
-							color: 0, 0, 0
-
-						MDCheckbox:
-							group: "mode"
-							size_hint_x: None
-							width: 60
-							on_active: root.checkbox_mode_click(self, self.active, "(IP) INDUCED POLARIZATION")
-							
-						Label:
-							text: "(IP) INDUCED POLARIZATION"
-							text_size: self.size
-							halign: "left"
-							valign: "middle"
-							font_size:12
-							color: 0, 0, 0
-
-						MDCheckbox:
-							group: "mode"
-							size_hint_x: None
-							width: 60
-							on_active: root.checkbox_mode_click(self, self.active, "(R) RESISTIVITY")		
-
-						Label:
-							text: "(R) RESISTIVITY"
-							text_size: self.size
-							halign: "left"
-							valign: "middle"
-							font_size:12
-							color: 0, 0, 0
-
-						MDCheckbox:
-							group: "mode"
-							size_hint_x: None
-							width: 60
-							on_active: root.checkbox_mode_click(self, self.active, "(R+IP) COMBINATION")		
-
-						Label:
-							text: "(R+IP) COMBINATION"
-							text_size: self.size
-							halign: "left"
-							valign: "middle"
-							font_size:12
-							color: 0, 0, 0
-
-					Label:
-						id: output_mode_label
 						text: ""
 						bold: True
 						font_size:12
@@ -282,7 +315,7 @@
 								id: slider_time
 								min: 100
 								max: 2000
-								step: 10
+								step: 100
 								value: 1000
 								hint: True
 								hint_bg_color: "white"
