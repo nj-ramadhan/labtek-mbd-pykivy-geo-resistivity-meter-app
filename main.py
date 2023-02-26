@@ -536,7 +536,7 @@ class ScreenData(BoxLayout):
         layout = self.ids.layout_tables
         
         self.data_tables = MDDataTable(
-            use_pagination=True,
+            # use_pagination=True,
             column_data=[
                 ("No.", dp(10)),
                 ("Voltage [V]", dp(35)),
