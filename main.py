@@ -17,15 +17,10 @@ import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from matplotlib.ticker import AutoMinorLocator
-
-# from plyer import filechooser
 from datetime import datetime
 from pathlib import Path
-
-# GPIO control and sensor acquisiton
-# import RPi.GPIO as GPIO
-# from ina219c import INA219 as read_c
-# from ina219p import INA219 as read_p
+from kivy.properties import ObjectProperty
+import time
 
 plt.style.use('bmh')
 
@@ -59,9 +54,8 @@ colors = {
     },
 }
 
-from kivy.properties import ObjectProperty
-import time
-
+DEBUG = True
+    
 STEPS = 51
 # MAX_POINT_WENNER = 500
 MAX_POINT = 10000
@@ -73,13 +67,19 @@ MAX_EXPECTED_AMPS = 0.2
 PIN_FWD = 16
 PIN_REV = 18
 
-# GPIO.cleanup
-# GPIO.setmode(GPIO.BOARD)
-# GPIO.setup(PIN_FWD, GPIO.OUT)
-# GPIO.setup(PIN_REV, GPIO.OUT)
-
 DISK_ADDRESS = Path("/media/pi/RESDONGLE/")
 SERIAL_NUMBER = "2301212112233412"
+
+if(not DEBUG):
+    # GPIO control and sensor acquisiton
+    import RPi.GPIO as GPIO
+    from ina219c import INA219 as read_c
+    from ina219p import INA219 as read_p
+
+    GPIO.cleanup
+    GPIO.setmode(GPIO.BOARD)
+    GPIO.setup(PIN_FWD, GPIO.OUT)
+    GPIO.setup(PIN_REV, GPIO.OUT)
 
 x_datum = np.zeros(MAX_POINT)
 y_datum = np.zeros(MAX_POINT)
@@ -108,7 +108,6 @@ count_mounting = 0
 inject_state = 0
 
 class ScreenSplash(BoxLayout):
-# class ScreenSplash(Screen):
     screen_manager = ObjectProperty(None)
     screen_setting = ObjectProperty(None)
     app_window = ObjectProperty(None)
@@ -195,8 +194,9 @@ class ScreenSetting(BoxLayout):
                     x_electrode[3, num_step] = num_trial + x_electrode[2, num_step]
                     x_datum[num_step] = (x_electrode[1, num_step] + (x_electrode[2, num_step] - x_electrode[1, num_step])/2) * dt_distance
                     y_datum[num_step] = (multiplier + 1) * dt_distance
-                    # print("x:"+ str(x_datum[num_step]) + " y:"+ str(y_datum[num_step]))
+                    
                     num_step += 1
+
                 num_trial += 1
 
         elif("WENNER (BETA)" in dt_config):
@@ -210,8 +210,9 @@ class ScreenSetting(BoxLayout):
                     x_electrode[3, num_step] = num_trial + x_electrode[2, num_step]
                     x_datum[num_step] = (x_electrode[1, num_step] + (x_electrode[2, num_step] - x_electrode[1, num_step])/2) * dt_distance
                     y_datum[num_step] = (multiplier + 1) * dt_distance
-                    # print("x:"+ str(x_datum[num_step]) + " y:"+ str(y_datum[num_step]))
+                    
                     num_step += 1
+
                 num_trial += 1
 
         if("WENNER (GAMMA)" in dt_config):
@@ -225,8 +226,9 @@ class ScreenSetting(BoxLayout):
                     x_electrode[3, num_step] = num_trial + x_electrode[2, num_step]
                     x_datum[num_step] = (x_electrode[1, num_step] + (x_electrode[2, num_step] - x_electrode[1, num_step])/2) * dt_distance
                     y_datum[num_step] = (multiplier + 1) * dt_distance
-                    # print("x:"+ str(x_datum[num_step]) + " y:"+ str(y_datum[num_step]))
+                    
                     num_step += 1
+
                 num_trial += 1
 
         elif("SCHLUMBERGER" in dt_config):
@@ -240,8 +242,9 @@ class ScreenSetting(BoxLayout):
                     x_electrode[3, num_step] = num_trial + x_electrode[2, num_step]
                     x_datum[num_step] = (x_electrode[1, num_step] + (x_electrode[2, num_step] - x_electrode[1, num_step])/2) * dt_distance
                     y_datum[num_step] = (multiplier + 1) * dt_distance
-                    # print("x:"+ str(x_datum[num_step]) + " y:"+ str(y_datum[num_step]))
+                    
                     num_step += 1
+
                 num_trial += 1
 
         elif("DIPOLE-DIPOLE" in dt_config):
@@ -276,9 +279,10 @@ class ScreenSetting(BoxLayout):
                         x_electrode[3, num_step] = i + x_electrode[2, num_step]
                         x_datum[num_step] = (x_electrode[0, num_step] + (x_electrode[2, num_step] - x_electrode[0, num_step])/2) * dt_distance
                         y_datum[num_step] = (i + 1) * dt_distance
-                        # print("x:"+ str(x_datum[num_step]) + " y:"+ str(y_datum[num_step]))
+                        
                         num_step += 1
                         num_trial += 1
+
                     num_trial = 0
         else:
             pass
@@ -291,12 +295,14 @@ class ScreenSetting(BoxLayout):
         self.ax.set_ylabel("n", fontsize=10)
        
         self.ax.set_facecolor("#eeeeee")
-        # self.ax.scatter(x_datum, y_datum, c=c_electrode[0], label=l_electrode[0], marker='o')
+        
         x_data = np.trim_zeros(x_datum)
         y_data = np.trim_zeros(y_datum)
         data_pos = np.array([x_data, y_data])
+
         #datum location
         self.ax.scatter(x_data, y_data, c=c_electrode[0], label=l_electrode[0], marker='.')
+
         #electrode location
         self.ax.scatter(x_electrode[0,0]*dt_distance , 0, c=c_electrode[1], label=l_electrode[1], marker=7)
         self.ax.scatter(x_electrode[1,0]*dt_distance , 0, c=c_electrode[2], label=l_electrode[2], marker=7)
@@ -307,10 +313,10 @@ class ScreenSetting(BoxLayout):
         self.ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title="Electrode")         
         self.ids.layout_illustration.clear_widgets()
         self.ids.layout_illustration.add_widget(FigureCanvasKivyAgg(self.fig))
-        # print(n_electrode)
 
     def measure(self):
         global flag_run
+
         if(flag_run):
             flag_run = False
         else:
@@ -370,7 +376,6 @@ class ScreenSetting(BoxLayout):
 
 class ScreenData(BoxLayout):
     screen_manager = ObjectProperty(None)
-    # acquisition = ScreenSetting.acquisition
 
     def __init__(self, **kwargs):
         super(ScreenData, self).__init__(**kwargs)
@@ -413,10 +418,12 @@ class ScreenData(BoxLayout):
             self.ids.bt_measure.md_bg_color = "#196BA5"
             Clock.unschedule(self.measurement_check)
             Clock.unschedule(self.inject_current)
-            # Clock.unschedule(self.measurement_sampling)
-            # GPIO.output(PIN_FWD, GPIO.LOW)
-            # GPIO.output(PIN_REV, GPIO.LOW)
+            Clock.unschedule(self.measurement_sampling)
             inject_state = 0
+            if(not DEBUG):
+                GPIO.output(PIN_FWD, GPIO.LOW)
+                GPIO.output(PIN_REV, GPIO.LOW)
+            
             
         if not DISK_ADDRESS.exists() and flag_dongle:
             try:
@@ -444,12 +451,8 @@ class ScreenData(BoxLayout):
         global dt_current
         global dt_voltage
 
-        #voltage = np.random.random_sample()
-        #current = np.random.random_sample()
-        #voltage = ina_p.voltage()
-        #current = ina_c.current()
-        voltage = np.amax(np.fabs(dt_voltage))
-        current = np.amax(np.fabs(dt_current))
+        voltage = np.max(np.fabs(dt_voltage))
+        current = np.max(np.fabs(dt_current))
         if(current > 0.0):
             resistivity = voltage / current
         else:
@@ -457,13 +460,6 @@ class ScreenData(BoxLayout):
             
         std_resistivity = np.std(data_base[2, :])
         ip_decay = (np.sum(dt_voltage) / voltage ) * (dt_time/10000)
-        #std_current = np.std(data_base[1, :])
-        # print(data_base[0, :])
-        #str_dt_voltage = np.array2string(dt_voltage, formatter={'float_kind':lambda dt_voltage:"%.2f" % dt_voltage})
-        #str_dt_current = np.array2string(dt_current, formatter={'float_kind':lambda dt_current:"%.2f" % dt_current})
-        #str_toast = "v:" + str_dt_voltage + ", c:" + str_dt_current
-        #toast(str_toast)
-
 
         data_acquisition = np.array([voltage, current, resistivity, std_resistivity, ip_decay])
         data_acquisition.resize([5, 1])
@@ -474,7 +470,6 @@ class ScreenData(BoxLayout):
         self.ids.realtime_resistivity.text = f"{resistivity:.3f}"
 
         self.data_tables.row_data=[(f"{i + 1}", f"{data_base[0,i]:.3f}", f"{data_base[1,i]:.3f}", f"{data_base[2,i]:.3f}", f"{data_base[3,i]:.3f}", f"{data_base[4,i]:.3f}") for i in range(len(data_base[1]))]
-        # self.data_tables.row_data=[(f"{i + 1}", "1", "2", "3", "4", "5") for i in range(5)]
 
     def inject_current(self, dt):
         global inject_state
@@ -482,61 +477,89 @@ class ScreenData(BoxLayout):
         inject_state += 1
         
         if(inject_state == 0):
-            # GPIO.output(PIN_FWD, GPIO.LOW)
-            # GPIO.output(PIN_REV, GPIO.LOW)
-            # toast("not injecting current")
             Clock.schedule_interval(self.measurement_sampling, dt_time / 10000)
+            if(not DEBUG):
+                GPIO.output(PIN_FWD, GPIO.LOW)
+                GPIO.output(PIN_REV, GPIO.LOW)
+                print("not injecting current")
             
         elif(inject_state == 1):
-            # GPIO.output(PIN_FWD, GPIO.HIGH)
-            # GPIO.output(PIN_REV, GPIO.LOW)
-            # toast("inject positive current")
             Clock.unschedule(self.measurement_sampling)
+            if(not DEBUG):
+                GPIO.output(PIN_FWD, GPIO.HIGH)
+                GPIO.output(PIN_REV, GPIO.LOW)
+                print("inject positive current")
             
         elif(inject_state == 2):
-            # GPIO.output(PIN_FWD, GPIO.LOW)
-            # GPIO.output(PIN_REV, GPIO.LOW)
-            # toast("not injecting current")
             Clock.schedule_interval(self.measurement_sampling, dt_time / 10000)
+            if(not DEBUG):
+                GPIO.output(PIN_FWD, GPIO.LOW)
+                GPIO.output(PIN_REV, GPIO.LOW)
+                print("not injecting current")
             
         elif(inject_state == 3):
-            # GPIO.output(PIN_FWD, GPIO.LOW)
-            # GPIO.output(PIN_REV, GPIO.HIGH)
-            # toast("inject negative current")
             Clock.unschedule(self.measurement_sampling)
+            if(not DEBUG):
+                GPIO.output(PIN_FWD, GPIO.LOW)
+                GPIO.output(PIN_REV, GPIO.HIGH)
+                print("inject negative current")
             
         else:
-            # GPIO.output(PIN_FWD, GPIO.LOW)
-            # GPIO.output(PIN_REV, GPIO.LOW)
-            inject_state = 0
             Clock.unschedule(self.measurement_sampling)
+            inject_state = 0
+            if(not DEBUG):
+                GPIO.output(PIN_FWD, GPIO.LOW)
+                GPIO.output(PIN_REV, GPIO.LOW)
+            
 
     def measurement_sampling(self, dt):
         global dt_current
         global dt_voltage
-        # Data acquisition
-        # ina_c = read_c(SHUNT_OHMS, MAX_EXPECTED_AMPS)
-        # ina_c.configure(ina_c.RANGE_16V, ina_c.GAIN_AUTO)
 
-        # ina_p = read_p(SHUNT_OHMS, MAX_EXPECTED_AMPS)
-        # ina_p.configure(ina_p.RANGE_16V, ina_p.GAIN_AUTO)
+        # Data acquisition
+        dt_voltage_temp = np.empty_like(dt_voltage)
+        dt_current_temp = np.empty_like(dt_current)
+
+        if(not DEBUG):
+            ina_c = read_c(SHUNT_OHMS, MAX_EXPECTED_AMPS)
+            ina_c.configure(ina_c.RANGE_16V, ina_c.GAIN_AUTO)
+
+            ina_p = read_p(SHUNT_OHMS, MAX_EXPECTED_AMPS)
+            ina_p.configure(ina_p.RANGE_16V, ina_p.GAIN_AUTO)
+
+            dt_voltage_temp[:1] = ina_p.voltage()
+            dt_current_temp[:1] = ina_c.current()
         
-        dt_temp = np.empty_like(dt_voltage)
-        # dt_temp[:1] = ina_p.voltage()
-        dt_temp[1:] = dt_voltage[:-1]
-        dt_voltage = dt_temp
+        dt_voltage_temp[1:] = dt_voltage[:-1]
+        dt_voltage = dt_voltage_temp
         
-        dt_temp = np.empty_like(dt_current)
-        # dt_temp[:1] = ina_c.current()
-        dt_temp[1:] = dt_current[:-1]
-        dt_current = dt_temp       
+        dt_current_temp[1:] = dt_current[:-1]
+        dt_current = dt_current_temp       
 
     def delayed_init(self, dt):
-        # print("enter delayed init")
         layout = self.ids.layout_tables
         
         self.data_tables = MDDataTable(
-            # use_pagination=True,
+            use_pagination=True,
+            column_data=[
+                ("No.", dp(10)),
+                ("Voltage [V]", dp(35)),
+                ("Current [mA]", dp(35)),
+                ("Resistivity [kOhm]", dp(35)),
+                ("Std Dev Resistivity", dp(35)),
+                ("IP (R decay)", dp(35)),
+            ],
+        )
+        layout.add_widget(self.data_tables)
+
+    def reset_data(self):
+        global data_base
+
+        data_base = np.zeros([5, 1])
+        layout = self.ids.layout_tables
+        
+        self.data_tables = MDDataTable(
+            use_pagination=True,
             column_data=[
                 ("No.", dp(10)),
                 ("Voltage [V]", dp(35)),
@@ -634,44 +657,34 @@ class ScreenGraph(BoxLayout):
         global data_base
         global data_pos
 
-        # print(dt)
-        # print(data_pos)
         data_limit = len(data_base[0,:])
-        # print(len(data_base[0,:]))
         visualized_data_pos = data_pos
 
         try:
             self.fig.set_facecolor("#eeeeee")
             self.fig.tight_layout()
-            # l, b, w, h = self.ax.get_position().bounds
-            # self.ax.set_position(pos=[l, b + 0.1*h, w, h*0.9])
             
             self.ax.set_xlabel("distance [m]", fontsize=10)
             self.ax.set_ylabel("n", fontsize=10)
-            self.ax.invert_yaxis()
             self.ax.set_facecolor("#eeeeee")
-            # self.ax.scatter(x_datum, y_datum, c=c_electrode[0], label=l_electrode[0], marker='o')
 
-            #datum location
-            cmap, norm = mcolors.from_levels_and_colors([0.0, 0.5, 1.0],['green','red'])
-            self.ax.scatter(visualized_data_pos[0,:data_limit], visualized_data_pos[1,:data_limit], c=data_base[0,:data_limit], cmap=cmap, norm=norm, label=l_electrode[0], marker='o')
-            #electrode location
+            # datum location
+            max_data = np.max(data_base[2,:])
+            cmap, norm = mcolors.from_levels_and_colors([0.0, 0.5 * max_data, max_data],['green','red'])
+            self.ax.scatter(visualized_data_pos[0,:data_limit], -visualized_data_pos[1,:data_limit], c=data_base[0,:data_limit], cmap=cmap, norm=norm, label=l_electrode[0], marker='o')
+            # electrode location
             self.ids.layout_graph.clear_widgets()
             self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))
 
             print("successfully show graphic")
-            # toast("successfully show graphic")
         
         except:
             print("error show graphic")
-            # toast("error show graphic")
 
         if(data_limit >= len(data_pos[0,:])):
             self.measure()
 
     def delayed_init(self, dt):
-        # print("enter delayed init")
-
         self.fig, self.ax = plt.subplots()
         self.fig.set_facecolor("#eeeeee")
         self.fig.tight_layout()
@@ -682,17 +695,6 @@ class ScreenGraph(BoxLayout):
         self.ax.set_ylabel("n", fontsize=10)
 
         self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))        
-        # self.fig, self.ax = plt.subplots()
-        # self.fig.set_facecolor("#eeeeee")
-        # self.fig.tight_layout()
-        # self.ax.grid(False)
-
-        # self.data_colormap = np.zeros((10, 100))
-        
-        # clrmesh = self.ax.pcolor(self.data_colormap, cmap='seismic', vmin=-0.1, vmax=0.1)
-        # self.fig.colorbar(clrmesh, ax=self.ax, format='%f')
-
-        # self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))
 
     def measure(self):
         global flag_run
@@ -700,6 +702,31 @@ class ScreenGraph(BoxLayout):
             flag_run = False
         else:
             flag_run = True
+
+    def reset_graph(self):
+        global data_base
+        global data_pos
+
+        data_base = np.zeros([5, 1])
+        data_pos = np.zeros([2, 1])
+
+        try:
+            self.ids.layout_graph.clear_widgets()
+            self.fig, self.ax = plt.subplots()
+            self.fig.set_facecolor("#eeeeee")
+            self.fig.tight_layout()
+            l, b, w, h = self.ax.get_position().bounds
+            self.ax.set_position(pos=[l, b + 0.3*h, w, h*0.7])
+            
+            self.ax.set_xlabel("distance [m]", fontsize=10)
+            self.ax.set_ylabel("n", fontsize=10)
+
+            self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))        
+            print("successfully reset graphic")
+        
+        except:
+            print("error reset graphic")
+
 
     def save_graph(self):
         try:

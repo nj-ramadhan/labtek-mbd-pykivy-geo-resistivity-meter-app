@@ -51,13 +51,20 @@
 			size_hint_y: 0.06
 			padding:10	
 			spacing:20			
+			MDFillRoundFlatIconButton:
+				id: bt_save_graph
+				icon: "reload"
+				text: "RESET GRAPH"
+				font_size: 22
+				size_hint_x: 0.24
+				on_press: root.reset_graph()
 
 			MDFillRoundFlatIconButton:
 				id: bt_save_graph
 				icon: "content-save"
 				text: "SAVE GRAPH"
 				font_size: 22
-				size_hint_x: 0.5
+				size_hint_x: 0.24
 				on_press: root.save_graph()
 
 			MDFillRoundFlatIconButton:

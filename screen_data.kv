@@ -113,11 +113,19 @@
 			padding:10	
 			spacing:20			
 			MDFillRoundFlatIconButton:
+				id: bt_reset_data
+				icon: "reload"
+				text: "RESET DATA"
+				font_size: 22
+				size_hint_x: 0.24
+				on_press: root.reset_data()
+
+			MDFillRoundFlatIconButton:
 				id: bt_save_data
 				icon: "content-save"
 				text: "SAVE DATA"
 				font_size: 22
-				size_hint_x: 0.5
+				size_hint_x: 0.24
 				on_press: root.save_data()
 
 			MDFillRoundFlatIconButton:
