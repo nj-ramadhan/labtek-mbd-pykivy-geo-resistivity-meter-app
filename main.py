@@ -67,8 +67,9 @@ MAX_EXPECTED_AMPS = 0.2
 PIN_FWD = 16
 PIN_REV = 18
 
+USERNAME = os.environ.get('USERNAME')
 # DISK_ADDRESS = Path("/media/pi/RESDONGLE/")
-DISK_ADDRESS = Path("/media/pms_cnc/RESDONGLE/")
+DISK_ADDRESS = Path("/media/" + USERNAME + "/RESDONGLE/")
 SERIAL_NUMBER = "2301212112233412"
 
 if(not DEBUG):
