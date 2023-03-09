@@ -54,7 +54,7 @@ colors = {
     },
 }
 
-DEBUG = True
+DEBUG = False
     
 STEPS = 51
 # MAX_POINT_WENNER = 500
@@ -67,7 +67,8 @@ MAX_EXPECTED_AMPS = 0.2
 PIN_FWD = 16
 PIN_REV = 18
 
-DISK_ADDRESS = Path("/media/pi/RESDONGLE/")
+# DISK_ADDRESS = Path("/media/pi/RESDONGLE/")
+DISK_ADDRESS = Path("/media/pms_cnc/RESDONGLE/")
 SERIAL_NUMBER = "2301212112233412"
 
 if(not DEBUG):
@@ -104,6 +105,8 @@ dt_current = np.zeros(10)
 dt_voltage = np.zeros(10)
 flag_run = False
 flag_dongle = True
+flag_autosave_data = False
+flag_autosave_graph = False
 count_mounting = 0
 inject_state = 0
 
@@ -390,6 +393,7 @@ class ScreenData(BoxLayout):
         global dt_cycle
         global data_base
         global inject_state
+        global flag_autosave_data
 
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
@@ -397,6 +401,8 @@ class ScreenData(BoxLayout):
             Clock.schedule_interval(self.measurement_check, 4 * dt_cycle * dt_time / 1000)
             # Clock.schedule_interval(self.inject_current, dt_time / 1000)
             # Clock.schedule_interval(self.measurement_sampling, dt_time / 10000)
+            flag_autosave_data = True
+
             if("(VES) VERTICAL ELECTRICAL SOUNDING" in dt_mode):
                 Clock.schedule_interval(self.inject_current, dt_time / 1000)
         
@@ -423,7 +429,9 @@ class ScreenData(BoxLayout):
             if(not DEBUG):
                 GPIO.output(PIN_FWD, GPIO.LOW)
                 GPIO.output(PIN_REV, GPIO.LOW)
-            
+            if(flag_autosave_data):
+                self.autosave_data()
+                flag_autosave_data = False
             
         if not DISK_ADDRESS.exists() and flag_dongle:
             try:
@@ -577,7 +585,21 @@ class ScreenData(BoxLayout):
             now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
             disk = str(DISK_ADDRESS) + now
             with open(disk,"wb") as f:
-                np.savetxt(f, data_base.T, fmt="%.3f",delimiter="\t",header="No. \t Voltage [V] \t Current [mA] \t Resistivity [kOhm] \t Std Dev Voltage \t Std Dev Current")
+                np.savetxt(f, data_base.T, fmt="%.3f",delimiter="\t",header="No. \t Voltage [V] \t Current [mA] \t Resistivity [kOhm] \t IP (R decay]")
+            print("sucessfully save data")
+            toast("sucessfully save data")
+        except:
+            print("error saving data")
+            toast("error saving data")
+
+    def autosave_data(self):
+        global data_base
+        try:
+            now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
+            cwd = os.getcwd()
+            disk = cwd + now
+            with open(disk,"wb") as f:
+                np.savetxt(f, data_base.T, fmt="%.3f",delimiter="\t",header="No. \t Voltage [V] \t Current [mA] \t Resistivity [kOhm] \t IP (R decay]")
             print("sucessfully save data")
             toast("sucessfully save data")
         except:
@@ -620,15 +642,20 @@ class ScreenGraph(BoxLayout):
         global count_mounting
         global dt_time
         global data_base
+        global flag_autosave_graph
 
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#A50000"
             Clock.schedule_interval(self.measurement_check, dt_time / 100)
+            flag_autosave_graph = True
         else:
             self.ids.bt_measure.text = "RUN MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#196BA5"
-            Clock.unschedule(self.measurement_check)  
+            Clock.unschedule(self.measurement_check)
+            if(flag_autosave_graph):
+                self.autosave_graph()
+                flag_autosave_graph = False  
                
         if not DISK_ADDRESS.exists() and flag_dongle:
             try:
@@ -732,6 +759,18 @@ class ScreenGraph(BoxLayout):
         try:
             now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
             disk = str(DISK_ADDRESS) + now
+            self.fig.savefig(disk)
+            print("sucessfully save graph")
+            toast("sucessfully save graph")
+        except:
+            print("error saving graph")
+            toast("error saving graph")
+                
+    def autosave_graph(self):
+        try:
+            now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
+            cwd = os.getcwd()
+            disk = cwd + now
             self.fig.savefig(disk)
             print("sucessfully save graph")
             toast("sucessfully save graph")
