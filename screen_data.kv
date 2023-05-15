@@ -42,69 +42,75 @@
 				size_hint_y: 0.1
 
 			BoxLayout:
-				orientation: "vertical"
-				size_hint_y: 0.2
-				canvas.before:
-					Color:
-						rgba: 0, 0, 0, 1
-					Line:
-						width: 2
-						rectangle: self.x, self.y, self.width, self.height
-				Label:
-					text: "MEASUREMENT DATA"
-					bold: True
-					font_size: 16
-					color: 0, 0, 0
-					size_hint_y: 0.1
+				orientation: "horizontal"
+				size_hint_y: 0.9
+				padding:10
+				spacing:10
 
 				BoxLayout:
-					orientation: "horizontal"
-					size_hint_y: 0.05
+					orientation: "vertical"
+					size_hint_x: 0.2
+					canvas.before:
+						Color:
+							rgba: 0, 0, 0, 1
+						Line:
+							width: 2
+							rectangle: self.x, self.y, self.width, self.height
 					Label:
-						text: "Voltage [V]"
-						font_size:12
-						color: 0, 0, 0
-
-					Label:
-						text: "Current [mA]"
-						font_size:12
-						color: 0, 0, 0
-
-					Label:
-						text: "Resistivity [kOhm]"
-						font_size:12
-						color: 0, 0, 0
-
-				BoxLayout:
-					orientation: "horizontal"
-					size_hint_y: 0.2
-
-					Label:
-						id: realtime_voltage
-						font_size:16
-						color: 0, 0, 0
+						text: "REALTIME DATA"
 						bold: True
-
-					Label:
-						id: realtime_current
-						font_size:16
+						font_size: 16
 						color: 0, 0, 0
-						bold: True
+						size_hint_y: 0.1
 
-					Label:
-						id: realtime_resistivity
-						font_size:16
-						color: 0, 0, 0
-						bold: True
+					BoxLayout:
+						orientation: "horizontal"
 
-			AnchorLayout:
-                id: layout_tables
-				size_hint_y: 0.7
-				spacing: 20
+						BoxLayout:
+							orientation: "vertical"
+							size_hint_x: 0.4
+							Label:
+								text: "Volt [V]"
+								font_size:12
+								color: 0, 0, 0
 
-                # MDDataTable:
-                #     id: data_tables
-                #     use_pagination:True
+							Label:
+								text: "Curr [mA]"
+								font_size:12
+								color: 0, 0, 0
+
+							Label:
+								text: "Res [kOhm]"
+								font_size:12
+								color: 0, 0, 0
+
+						BoxLayout:
+							orientation: "vertical"
+							size_hint_x: 0.6
+
+							Label:
+								id: realtime_voltage
+								font_size:16
+								color: 0, 0, 0
+								bold: True
+
+							Label:
+								id: realtime_current
+								font_size:16
+								color: 0, 0, 0
+								bold: True
+
+							Label:
+								id: realtime_resistivity
+								font_size:16
+								color: 0, 0, 0
+								bold: True
+
+				AnchorLayout:
+					id: layout_tables
+					size_hint_x: 0.7
+					spacing: 5
+
 
 		# MDFillRoundFlatIconButton: interfacing layout
 		BoxLayout:

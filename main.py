@@ -533,8 +533,8 @@ class ScreenData(BoxLayout):
         global dt_voltage
 
         # Data acquisition
-        dt_voltage_temp = np.empty_like(dt_voltage)
-        dt_current_temp = np.empty_like(dt_current)
+        dt_voltage_temp = np.zeros_like(dt_voltage)
+        dt_current_temp = np.zeros_like(dt_current)
 
         if(not DEBUG):
             try:
@@ -566,13 +566,15 @@ class ScreenData(BoxLayout):
         
         self.data_tables = MDDataTable(
             use_pagination=True,
+            pagination_menu_pos="auto",
+            rows_num=4,
             column_data=[
                 ("No.", dp(10)),
-                ("Voltage [V]", dp(35)),
-                ("Current [mA]", dp(35)),
-                ("Resistivity [kOhm]", dp(35)),
-                ("Std Dev Resistivity", dp(35)),
-                ("IP (R decay)", dp(35)),
+                ("Volt [V]", dp(27)),
+                ("Curr [mA]", dp(27)),
+                ("Resi [kOhm]", dp(27)),
+                ("Std Dev Res", dp(27)),
+                ("IP (R decay)", dp(27)),
             ],
         )
         layout.add_widget(self.data_tables)
@@ -592,13 +594,15 @@ class ScreenData(BoxLayout):
         
         self.data_tables = MDDataTable(
             use_pagination=True,
+            pagination_menu_pos="auto",
+            rows_num=4,
             column_data=[
                 ("No.", dp(10)),
-                ("Voltage [V]", dp(35)),
-                ("Current [mA]", dp(35)),
-                ("Resistivity [kOhm]", dp(35)),
-                ("Std Dev Resistivity", dp(35)),
-                ("IP (R decay)", dp(35)),
+                ("Volt [V]", dp(27)),
+                ("Curr [mA]", dp(27)),
+                ("Resi [kOhm]", dp(27)),
+                ("Std Dev Res", dp(27)),
+                ("IP (R decay)", dp(27)),
             ],
         )
         layout.add_widget(self.data_tables)
