@@ -54,7 +54,7 @@ colors = {
     },
 }
 
-DEBUG = False
+DEBUG = True
     
 STEPS = 51
 # MAX_POINT_WENNER = 500
@@ -62,12 +62,12 @@ MAX_POINT = 10000
 ELECTRODES_NUM = 48
 
 SHUNT_OHMS = 0.1
-MAX_EXPECTED_AMPS = 0.2
+MAX_EXPECTED_AMPS = 0.1
 
-PIN_FWD = 16
-PIN_REV = 18
+PIN_FWD = 33
+PIN_REV = 36
 
-USERNAME = os.environ.get('USERNAME')
+USERNAME = 'pi'
 # DISK_ADDRESS = Path("/media/pi/RESDONGLE/")
 DISK_ADDRESS = Path("/media/" + USERNAME + "/RESDONGLE/")
 SERIAL_NUMBER = "2301212112233412"
@@ -83,14 +83,15 @@ if(not DEBUG):
     GPIO.setup(PIN_FWD, GPIO.OUT)
     GPIO.setup(PIN_REV, GPIO.OUT)
 
-x_datum = np.zeros(MAX_POINT)
-y_datum = np.zeros(MAX_POINT)
-x_electrode = np.zeros((4, MAX_POINT))
-n_electrode = np.zeros((ELECTRODES_NUM, STEPS))
+# x_datum = np.empty(MAX_POINT)
+# y_datum = np.empty(MAX_POINT)
+x_electrode = np.empty((4, MAX_POINT))
+n_electrode = np.empty((ELECTRODES_NUM, STEPS))
 c_electrode = np.array(["#196BA5","#FF0000","#FFDD00","#00FF00","#00FFDD"])
 l_electrode = np.array(["Datum","C1","C2","P1","P2"])
-data_base = np.zeros([5, 1])
-data_pos = np.zeros([2, 1])
+data_base = np.empty([5, 1])
+data_pos = np.empty([2, 1])
+data_pos = np.empty([2, 1])
 
 checks_mode = []
 checks_config = []
@@ -101,9 +102,9 @@ dt_constant = 1
 dt_time = 500
 dt_cycle = 1
 
-dt_measure = np.zeros(6)
-dt_current = np.zeros(10)
-dt_voltage = np.zeros(10)
+dt_measure = np.empty(6)
+dt_current = np.empty(10)
+dt_voltage = np.empty(10)
 flag_run = False
 flag_dongle = True
 flag_autosave_data = False
@@ -186,6 +187,8 @@ class ScreenSetting(BoxLayout):
         self.ids.layout_illustration.remove_widget(FigureCanvasKivyAgg(self.fig))
         x_datum = np.zeros(MAX_POINT)
         y_datum = np.zeros(MAX_POINT)
+        # x_datum = np.empty(MAX_POINT)
+        # y_datum = np.empty(MAX_POINT)
 
         if("WENNER (ALPHA)" in dt_config):
             num_step = 0
@@ -302,6 +305,8 @@ class ScreenSetting(BoxLayout):
         
         x_data = np.trim_zeros(x_datum)
         y_data = np.trim_zeros(y_datum)
+        # x_data = x_datum[np.array([x.size>0 for x in x_datum])]
+        # y_data = y_datum[np.array([y.size>0 for y in y_datum])]
         data_pos = np.array([x_data, y_data])
 
         #datum location
@@ -433,26 +438,28 @@ class ScreenData(BoxLayout):
             if(flag_autosave_data):
                 self.autosave_data()
                 flag_autosave_data = False
+
+        self.ids.bt_save_data.disabled = False
             
-        if not DISK_ADDRESS.exists() and flag_dongle:
-            try:
-                print("try mounting")
-                serial_file = str(DISK_ADDRESS) + "/serial.key"
-                print(serial_file)
-                with open(serial_file,"r") as f:
-                    serial_number = f.readline()
-                    if serial_number == SERIAL_NUMBER:
-                        print("success, serial number is valid")
-                        self.ids.bt_save_data.disabled = False
-                    else:
-                        print("fail, serial number is invalid")
-                        self.ids.bt_save_data.disabled = True                    
-            except:
-                print(f"Could not mount {DISK_ADDRESS}")
-                self.ids.bt_save_data.disabled = True
-                count_mounting += 1
-                if(count_mounting > 10):
-                    flag_dongle = False 
+        # if not DISK_ADDRESS.exists() and flag_dongle:
+        #     try:
+        #         print("try mounting")
+        #         serial_file = str(DISK_ADDRESS) + "/serial.key"
+        #         print(serial_file)
+        #         with open(serial_file,"r") as f:
+        #             serial_number = f.readline()
+        #             if serial_number == SERIAL_NUMBER:
+        #                 print("success, serial number is valid")
+        #                 self.ids.bt_save_data.disabled = False
+        #             else:
+        #                 print("fail, serial number is invalid")
+        #                 self.ids.bt_save_data.disabled = True                    
+        #     except:
+        #         print(f"Could not mount {DISK_ADDRESS}")
+        #         self.ids.bt_save_data.disabled = True
+        #         count_mounting += 1
+        #         if(count_mounting > 10):
+        #             flag_dongle = False 
 
     def measurement_check(self, dt):
         global dt_time
@@ -486,7 +493,7 @@ class ScreenData(BoxLayout):
         inject_state += 1
         
         if(inject_state == 0):
-            Clock.schedule_interval(self.measurement_sampling, dt_time / 10000)
+            Clock.schedule_interval(self.measurement_sampling, dt_time / 40000)
             if(not DEBUG):
                 GPIO.output(PIN_FWD, GPIO.LOW)
                 GPIO.output(PIN_REV, GPIO.LOW)
@@ -500,7 +507,7 @@ class ScreenData(BoxLayout):
                 print("inject positive current")
             
         elif(inject_state == 2):
-            Clock.schedule_interval(self.measurement_sampling, dt_time / 10000)
+            Clock.schedule_interval(self.measurement_sampling, dt_time / 40000)
             if(not DEBUG):
                 GPIO.output(PIN_FWD, GPIO.LOW)
                 GPIO.output(PIN_REV, GPIO.LOW)
@@ -530,15 +537,24 @@ class ScreenData(BoxLayout):
         dt_current_temp = np.empty_like(dt_current)
 
         if(not DEBUG):
-            ina_c = read_c(SHUNT_OHMS, MAX_EXPECTED_AMPS)
-            ina_c.configure(ina_c.RANGE_16V, ina_c.GAIN_AUTO)
+            try:
+                ina_c = read_c(SHUNT_OHMS, MAX_EXPECTED_AMPS)
+                ina_c.configure(ina_c.RANGE_16V, ina_c.GAIN_AUTO)
+                
+                dt_current_temp[:1] = ina_c.current()
+            except:
+                toast("error read current")
+                dt_current_temp[:1] = 0.0
 
-            ina_p = read_p(SHUNT_OHMS, MAX_EXPECTED_AMPS)
-            ina_p.configure(ina_p.RANGE_16V, ina_p.GAIN_AUTO)
+            try:
+                ina_p = read_p(SHUNT_OHMS, MAX_EXPECTED_AMPS)
+                ina_p.configure(ina_p.RANGE_16V, ina_p.GAIN_AUTO)
 
-            dt_voltage_temp[:1] = ina_p.voltage()
-            dt_current_temp[:1] = ina_c.current()
-        
+                dt_voltage_temp[:1] = ina_p.voltage()                
+            except:
+                toast("error read voltage")
+                dt_voltage_temp[:1] = 0.0
+
         dt_voltage_temp[1:] = dt_voltage[:-1]
         dt_voltage = dt_voltage_temp
         
@@ -563,8 +579,15 @@ class ScreenData(BoxLayout):
 
     def reset_data(self):
         global data_base
-
-        data_base = np.zeros([5, 1])
+        global dt_measure
+        global dt_current
+        global dt_voltage
+        
+        data_base = np.empty([5, 1])
+        dt_measure = np.empty(6)
+        dt_current = np.empty(10)
+        dt_voltage = np.empty(10)
+        
         layout = self.ids.layout_tables
         
         self.data_tables = MDDataTable(
@@ -582,11 +605,44 @@ class ScreenData(BoxLayout):
 
     def save_data(self):
         global data_base
+        global dt_distance
+        global dt_config
+        global data_pos
+
+        x_loc = data_pos[0, :]
+        print(x_loc)
+
+        data = data_base[2, :len(x_loc)]
+        print(data)
+
+        spaces = np.ones_like(x_loc) * dt_distance
+        print(spaces)
+
+        data_write = np.vstack((x_loc, spaces, data))
+        print(data_write)
+
+        if("WENNER (ALPHA)" in dt_config):
+            mode = 1
+        elif("WENNER (BETA)" in dt_config):
+            mode = 1
+        elif("WENNER (GAMMA)" in dt_config):
+            mode = 1
+        elif("POLE-POLE" in dt_config):
+            mode = 2
+        elif("DIPOLE-DIPOLE" in dt_config):
+            mode = 3
+        elif("SCHLUMBERGER" in dt_config):
+            mode = 7
+
         try:
+
             now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
-            disk = str(DISK_ADDRESS) + now
+            # disk = str(DISK_ADDRESS) + now
+            disk = os.getcwd() + now
+            head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, len(data_base.T[2]))
+            foot="0 \n0 \n0 \n0 \n0"
             with open(disk,"wb") as f:
-                np.savetxt(f, data_base.T, fmt="%.3f",delimiter="\t",header="No. \t Voltage [V] \t Current [mA] \t Resistivity [kOhm] \t IP (R decay]")
+                np.savetxt(f, data_write.T, fmt="%.3f", delimiter="\t", header=head, footer=foot, comments="")
             print("sucessfully save data")
             toast("sucessfully save data")
         except:
@@ -596,16 +652,16 @@ class ScreenData(BoxLayout):
     def autosave_data(self):
         global data_base
         try:
-            now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
+            now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.raw")
             cwd = os.getcwd()
             disk = cwd + now
             with open(disk,"wb") as f:
-                np.savetxt(f, data_base.T, fmt="%.3f",delimiter="\t",header="No. \t Voltage [V] \t Current [mA] \t Resistivity [kOhm] \t IP (R decay]")
-            print("sucessfully save data")
-            toast("sucessfully save data")
+                np.savetxt(f, data_base.T, fmt="%.3f",delimiter="\t",header="Volt [V] \t Curr [mA] \t Res [kOhm] \t StdDev \t IP [R decay]")
+            print("sucessfully auto save data")
+            # toast("sucessfully save data")
         except:
-            print("error saving data")
-            toast("error saving data")
+            print("error auto saving data")
+            # toast("error saving data")
 
     def measure(self):
         global flag_run
@@ -657,7 +713,7 @@ class ScreenGraph(BoxLayout):
             if(flag_autosave_graph):
                 self.autosave_graph()
                 flag_autosave_graph = False  
-               
+        
         if not DISK_ADDRESS.exists() and flag_dongle:
             try:
                 print("try mounting")
@@ -685,7 +741,7 @@ class ScreenGraph(BoxLayout):
         global data_base
         global data_pos
 
-        data_limit = len(data_base[0,:])
+        data_limit = len(data_base[2,:])
         visualized_data_pos = data_pos
 
         try:
@@ -697,9 +753,9 @@ class ScreenGraph(BoxLayout):
             self.ax.set_facecolor("#eeeeee")
 
             # datum location
-            max_data = np.max(data_base[2,:])
-            cmap, norm = mcolors.from_levels_and_colors([0.0, 0.5 * max_data, max_data],['green','red'])
-            self.ax.scatter(visualized_data_pos[0,:data_limit], -visualized_data_pos[1,:data_limit], c=data_base[0,:data_limit], cmap=cmap, norm=norm, label=l_electrode[0], marker='o')
+            max_data = np.max(data_base[2,:data_limit])
+            cmap, norm = mcolors.from_levels_and_colors([0.0, max_data, max_data * 2],['green','red'])
+            self.ax.scatter(visualized_data_pos[0,:data_limit], -visualized_data_pos[1,:data_limit], c=data_base[2,:data_limit], cmap=cmap, norm=norm, label=l_electrode[0], marker='o')
             # electrode location
             self.ids.layout_graph.clear_widgets()
             self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))
@@ -735,8 +791,8 @@ class ScreenGraph(BoxLayout):
         global data_base
         global data_pos
 
-        data_base = np.zeros([5, 1])
-        data_pos = np.zeros([2, 1])
+        data_base = np.empty([5, 1])
+        data_pos = np.empty([2, 1])
 
         try:
             self.ids.layout_graph.clear_widgets()
@@ -773,11 +829,11 @@ class ScreenGraph(BoxLayout):
             cwd = os.getcwd()
             disk = cwd + now
             self.fig.savefig(disk)
-            print("sucessfully save graph")
-            toast("sucessfully save graph")
+            print("sucessfully auto save graph")
+            # toast("sucessfully save graph")
         except:
-            print("error saving graph")
-            toast("error saving graph")
+            print("error auto saving graph")
+            # toast("error saving graph")
                 
     def screen_setting(self):
         self.screen_manager.current = 'screen_setting'
