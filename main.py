@@ -433,8 +433,10 @@ class ScreenData(BoxLayout):
             Clock.unschedule(self.measurement_sampling)
             inject_state = 0
             if(not DEBUG):
-                GPIO.output(PIN_FWD, GPIO.LOW)
-                GPIO.output(PIN_REV, GPIO.LOW)
+                # GPIO.output(PIN_FWD, GPIO.LOW)
+                # GPIO.output(PIN_REV, GPIO.LOW)
+                GPIO.output(PIN_FWD, GPIO.HIGH)
+                GPIO.output(PIN_REV, GPIO.HIGH)
             if(flag_autosave_data):
                 self.autosave_data()
                 flag_autosave_data = False
@@ -495,8 +497,10 @@ class ScreenData(BoxLayout):
         if(inject_state == 0):
             Clock.schedule_interval(self.measurement_sampling, dt_time / 40000)
             if(not DEBUG):
-                GPIO.output(PIN_FWD, GPIO.LOW)
-                GPIO.output(PIN_REV, GPIO.LOW)
+                # GPIO.output(PIN_FWD, GPIO.LOW)
+                # GPIO.output(PIN_REV, GPIO.LOW)
+                GPIO.output(PIN_FWD, GPIO.HIGH)
+                GPIO.output(PIN_REV, GPIO.HIGH)
                 print("not injecting current")
             
         elif(inject_state == 1):
@@ -509,8 +513,10 @@ class ScreenData(BoxLayout):
         elif(inject_state == 2):
             Clock.schedule_interval(self.measurement_sampling, dt_time / 40000)
             if(not DEBUG):
-                GPIO.output(PIN_FWD, GPIO.LOW)
-                GPIO.output(PIN_REV, GPIO.LOW)
+                # GPIO.output(PIN_FWD, GPIO.LOW)
+                # GPIO.output(PIN_REV, GPIO.LOW)
+                GPIO.output(PIN_FWD, GPIO.HIGH)
+                GPIO.output(PIN_REV, GPIO.HIGH)
                 print("not injecting current")
             
         elif(inject_state == 3):
@@ -524,8 +530,10 @@ class ScreenData(BoxLayout):
             Clock.unschedule(self.measurement_sampling)
             inject_state = 0
             if(not DEBUG):
-                GPIO.output(PIN_FWD, GPIO.LOW)
-                GPIO.output(PIN_REV, GPIO.LOW)
+                # GPIO.output(PIN_FWD, GPIO.LOW)
+                # GPIO.output(PIN_REV, GPIO.LOW)
+                GPIO.output(PIN_FWD, GPIO.HIGH)
+                GPIO.output(PIN_REV, GPIO.HIGH)
             
 
     def measurement_sampling(self, dt):
