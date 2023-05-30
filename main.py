@@ -21,6 +21,11 @@ from datetime import datetime
 from pathlib import Path
 from kivy.properties import ObjectProperty
 import time
+import board
+import busio
+import adafruit_ads1x15.ads1115 as ADS
+from adafruit_ads1x15.analog_in import AnalogIn
+import RPi.GPIO as GPIO
 
 plt.style.use('bmh')
 
@@ -54,20 +59,28 @@ colors = {
     },
 }
 
-DEBUG = True
+DEBUG = False
     
 STEPS = 51
 # MAX_POINT_WENNER = 500
 MAX_POINT = 10000
 ELECTRODES_NUM = 48
 
-SHUNT_OHMS = 0.1
-MAX_EXPECTED_AMPS = 0.1
+PIN_ENABLE = 23 #16
+PIN_POLARITY = 24 #18
 
-PIN_FWD = 33
-PIN_REV = 36
+C_OFFSET = 2.52
+C_GAIN = 5.0
 
-USERNAME = 'pi'
+P_OFFSET = 0.00
+P_GAIN = 1.0
+# SHUNT_OHMS = 0.1
+# MAX_EXPECTED_AMPS = 0.1
+# 
+# PIN_FWD = 16
+# PIN_REV = 18
+
+USERNAME = 'labtek'
 # DISK_ADDRESS = Path("/media/pi/RESDONGLE/")
 DISK_ADDRESS = Path("/media/" + USERNAME + "/RESDONGLE/")
 SERIAL_NUMBER = "2301212112233412"
@@ -75,23 +88,25 @@ SERIAL_NUMBER = "2301212112233412"
 if(not DEBUG):
     # GPIO control and sensor acquisiton
     import RPi.GPIO as GPIO
-    from ina219c import INA219 as read_c
-    from ina219p import INA219 as read_p
+    i2c = busio.I2C(board.SCL, board.SDA)
+    ads = ADS.ADS1115(i2c)
+#     from ina219c import INA219 as read_c
+#     from ina219p import INA219 as read_p
 
     GPIO.cleanup
-    GPIO.setmode(GPIO.BOARD)
-    GPIO.setup(PIN_FWD, GPIO.OUT)
-    GPIO.setup(PIN_REV, GPIO.OUT)
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(PIN_ENABLE, GPIO.OUT)
+    GPIO.setup(PIN_POLARITY, GPIO.OUT)
 
-# x_datum = np.empty(MAX_POINT)
-# y_datum = np.empty(MAX_POINT)
-x_electrode = np.empty((4, MAX_POINT))
-n_electrode = np.empty((ELECTRODES_NUM, STEPS))
+# x_datum = np.zeros(MAX_POINT)
+# y_datum = np.zeros(MAX_POINT)
+x_electrode = np.zeros((4, MAX_POINT))
+n_electrode = np.zeros((ELECTRODES_NUM, STEPS))
 c_electrode = np.array(["#196BA5","#FF0000","#FFDD00","#00FF00","#00FFDD"])
 l_electrode = np.array(["Datum","C1","C2","P1","P2"])
-data_base = np.empty([5, 1])
-data_pos = np.empty([2, 1])
-data_pos = np.empty([2, 1])
+data_base = np.zeros([5, 1])
+data_pos = np.zeros([2, 1])
+data_pos = np.zeros([2, 1])
 
 checks_mode = []
 checks_config = []
@@ -102,13 +117,15 @@ dt_constant = 1
 dt_time = 500
 dt_cycle = 1
 
-dt_measure = np.empty(6)
-dt_current = np.empty(10)
-dt_voltage = np.empty(10)
+dt_measure = np.zeros(6)
+dt_current = np.zeros(10)
+dt_voltage = np.zeros(10)
 flag_run = False
+flag_measure = False
 flag_dongle = True
 flag_autosave_data = False
 flag_autosave_graph = False
+
 count_mounting = 0
 inject_state = 0
 
@@ -187,8 +204,8 @@ class ScreenSetting(BoxLayout):
         self.ids.layout_illustration.remove_widget(FigureCanvasKivyAgg(self.fig))
         x_datum = np.zeros(MAX_POINT)
         y_datum = np.zeros(MAX_POINT)
-        # x_datum = np.empty(MAX_POINT)
-        # y_datum = np.empty(MAX_POINT)
+        # x_datum = np.zeros(MAX_POINT)
+        # y_datum = np.zeros(MAX_POINT)
 
         if("WENNER (ALPHA)" in dt_config):
             num_step = 0
@@ -387,12 +404,16 @@ class ScreenData(BoxLayout):
     screen_manager = ObjectProperty(None)
 
     def __init__(self, **kwargs):
+        global dt_time
+        global dt_cycle
+        
         super(ScreenData, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check, 2)
+        Clock.schedule_interval(self.regular_check, 1)
 
     def regular_check(self, dt):
         global flag_run
+        global flag_measure
         global flag_dongle
         global count_mounting
         global dt_time
@@ -404,23 +425,36 @@ class ScreenData(BoxLayout):
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#A50000"
-            Clock.schedule_interval(self.measurement_check, 4 * dt_cycle * dt_time / 1000)
             # Clock.schedule_interval(self.inject_current, dt_time / 1000)
             # Clock.schedule_interval(self.measurement_sampling, dt_time / 10000)
             flag_autosave_data = True
 
             if("(VES) VERTICAL ELECTRICAL SOUNDING" in dt_mode):
-                Clock.schedule_interval(self.inject_current, dt_time / 1000)
+                if(flag_measure == False):
+                    Clock.schedule_interval(self.measurement_check, ((4 * dt_cycle * dt_time) / 1000))
+                    Clock.schedule_interval(self.inject_current, ((dt_cycle * dt_time)  / 1000))
+                
+                flag_measure = True
         
             elif("(SP) SELF POTENTIAL" in dt_mode):
-                pass
-
+                if(flag_measure == False):
+                    Clock.schedule_interval(self.measurement_check, ((4 * dt_cycle * dt_time) / 1000))
+                
+                flag_measure = True
+                
             elif("(R) RESISTIVITY" in dt_mode):
-                Clock.schedule_interval(self.inject_current, dt_time / 1000)
-
+                if(flag_measure == False):
+                    Clock.schedule_interval(self.measurement_check, ((4 * dt_cycle * dt_time) / 1000))
+                    Clock.schedule_interval(self.inject_current, ((dt_cycle * dt_time)  / 1000))
+                
+                flag_measure = True
+                
             elif("(R+IP) INDUCED POLARIZATION" in dt_mode):
-                Clock.schedule_interval(self.inject_current, dt_time / 1000)
-                        
+                if(flag_measure == False):
+                    Clock.schedule_interval(self.measurement_check, ((4 * dt_cycle * dt_time) / 1000))
+                    Clock.schedule_interval(self.inject_current, ((dt_cycle * dt_time)  / 1000))
+                
+                flag_measure = True                        
             else:
                 pass
             
@@ -430,38 +464,39 @@ class ScreenData(BoxLayout):
             self.ids.bt_measure.md_bg_color = "#196BA5"
             Clock.unschedule(self.measurement_check)
             Clock.unschedule(self.inject_current)
-            Clock.unschedule(self.measurement_sampling)
             inject_state = 0
+            flag_measure = False
             if(not DEBUG):
                 # GPIO.output(PIN_FWD, GPIO.LOW)
                 # GPIO.output(PIN_REV, GPIO.LOW)
-                GPIO.output(PIN_FWD, GPIO.HIGH)
-                GPIO.output(PIN_REV, GPIO.HIGH)
+                GPIO.output(PIN_ENABLE, GPIO.HIGH)
+                GPIO.output(PIN_POLARITY, GPIO.HIGH)
             if(flag_autosave_data):
                 self.autosave_data()
                 flag_autosave_data = False
 
-        self.ids.bt_save_data.disabled = False
+#         self.ids.bt_save_data.disabled = False
             
-        # if not DISK_ADDRESS.exists() and flag_dongle:
-        #     try:
-        #         print("try mounting")
-        #         serial_file = str(DISK_ADDRESS) + "/serial.key"
-        #         print(serial_file)
-        #         with open(serial_file,"r") as f:
-        #             serial_number = f.readline()
-        #             if serial_number == SERIAL_NUMBER:
-        #                 print("success, serial number is valid")
-        #                 self.ids.bt_save_data.disabled = False
-        #             else:
-        #                 print("fail, serial number is invalid")
-        #                 self.ids.bt_save_data.disabled = True                    
-        #     except:
-        #         print(f"Could not mount {DISK_ADDRESS}")
-        #         self.ids.bt_save_data.disabled = True
-        #         count_mounting += 1
-        #         if(count_mounting > 10):
-        #             flag_dongle = False 
+        if not DISK_ADDRESS.exists() and flag_dongle:
+            try:
+                print("try mounting")
+                serial_file = str(DISK_ADDRESS) + "/serial.key"
+                print(serial_file)
+                with open(serial_file,"r") as f:
+                    serial_number = f.readline()
+                    if serial_number == SERIAL_NUMBER:
+                        print("success, serial number is valid")
+                        self.ids.bt_save_data.disabled = False
+                    else:
+                        print("fail, serial number is invalid")
+                        self.ids.bt_save_data.disabled = True                    
+            except:
+                print(f"Could not mount {DISK_ADDRESS}")
+                self.ids.bt_save_data.disabled = True
+                count_mounting += 1
+                if(count_mounting > 10):
+                    flag_dongle = False 
+ 
 
     def measurement_check(self, dt):
         global dt_time
@@ -477,7 +512,7 @@ class ScreenData(BoxLayout):
             resistivity = 0
             
         std_resistivity = np.std(data_base[2, :])
-        ip_decay = (np.sum(dt_voltage) / voltage ) * (dt_time/10000)
+        ip_decay = (np.sum(dt_voltage) / voltage ) * ((dt_cycle * dt_time)/10000)
 
         data_acquisition = np.array([voltage, current, resistivity, std_resistivity, ip_decay])
         data_acquisition.resize([5, 1])
@@ -491,54 +526,50 @@ class ScreenData(BoxLayout):
 
     def inject_current(self, dt):
         global inject_state
-        
-        inject_state += 1
-        
+
+        if(inject_state > 3):
+            Clock.unschedule(self.measurement_sampling)
+            inject_state = 0
+            
         if(inject_state == 0):
-            Clock.schedule_interval(self.measurement_sampling, dt_time / 40000)
+            Clock.unschedule(self.measurement_sampling)
             if(not DEBUG):
                 # GPIO.output(PIN_FWD, GPIO.LOW)
                 # GPIO.output(PIN_REV, GPIO.LOW)
-                GPIO.output(PIN_FWD, GPIO.HIGH)
-                GPIO.output(PIN_REV, GPIO.HIGH)
+                GPIO.output(PIN_ENABLE, GPIO.HIGH)
+                GPIO.output(PIN_POLARITY, GPIO.HIGH)
                 print("not injecting current")
             
         elif(inject_state == 1):
-            Clock.unschedule(self.measurement_sampling)
+            Clock.schedule_interval(self.measurement_sampling, (dt_cycle * dt_time) / 10000)
             if(not DEBUG):
-                GPIO.output(PIN_FWD, GPIO.HIGH)
-                GPIO.output(PIN_REV, GPIO.LOW)
+                GPIO.output(PIN_ENABLE, GPIO.LOW)
+                GPIO.output(PIN_POLARITY, GPIO.HIGH)
                 print("inject positive current")
             
         elif(inject_state == 2):
-            Clock.schedule_interval(self.measurement_sampling, dt_time / 40000)
+            Clock.unschedule(self.measurement_sampling)
             if(not DEBUG):
                 # GPIO.output(PIN_FWD, GPIO.LOW)
                 # GPIO.output(PIN_REV, GPIO.LOW)
-                GPIO.output(PIN_FWD, GPIO.HIGH)
-                GPIO.output(PIN_REV, GPIO.HIGH)
+                GPIO.output(PIN_ENABLE, GPIO.HIGH)
+                GPIO.output(PIN_POLARITY, GPIO.HIGH)
                 print("not injecting current")
             
         elif(inject_state == 3):
-            Clock.unschedule(self.measurement_sampling)
+            Clock.schedule_interval(self.measurement_sampling, (dt_cycle * dt_time) / 10000)
             if(not DEBUG):
-                GPIO.output(PIN_FWD, GPIO.LOW)
-                GPIO.output(PIN_REV, GPIO.HIGH)
+                GPIO.output(PIN_ENABLE, GPIO.LOW)
+                GPIO.output(PIN_POLARITY, GPIO.LOW)
                 print("inject negative current")
             
-        else:
-            Clock.unschedule(self.measurement_sampling)
-            inject_state = 0
-            if(not DEBUG):
-                # GPIO.output(PIN_FWD, GPIO.LOW)
-                # GPIO.output(PIN_REV, GPIO.LOW)
-                GPIO.output(PIN_FWD, GPIO.HIGH)
-                GPIO.output(PIN_REV, GPIO.HIGH)
-            
-
+        print("inject: ", inject_state)
+        inject_state += 1
+        
     def measurement_sampling(self, dt):
         global dt_current
         global dt_voltage
+        global ads
 
         # Data acquisition
         dt_voltage_temp = np.zeros_like(dt_voltage)
@@ -546,19 +577,24 @@ class ScreenData(BoxLayout):
 
         if(not DEBUG):
             try:
-                ina_c = read_c(SHUNT_OHMS, MAX_EXPECTED_AMPS)
-                ina_c.configure(ina_c.RANGE_16V, ina_c.GAIN_AUTO)
-                
-                dt_current_temp[:1] = ina_c.current()
+                chan_c = AnalogIn(ads, ADS.P0)
+                realtime_current = (chan_c.voltage - C_OFFSET) * C_GAIN
+#                 ina_c = read_c(SHUNT_OHMS, MAX_EXPECTED_AMPS)
+#                 ina_c.configure(ina_c.RANGE_16V, ina_c.GAIN_AUTO)
+#                 dt_current_temp[:1] = ina_c.current()
+                dt_current_temp[:1] = realtime_current
             except:
                 toast("error read current")
                 dt_current_temp[:1] = 0.0
 
             try:
-                ina_p = read_p(SHUNT_OHMS, MAX_EXPECTED_AMPS)
-                ina_p.configure(ina_p.RANGE_16V, ina_p.GAIN_AUTO)
+                chan_p = AnalogIn(ads, ADS.P1)
+                realtime_voltage = (chan_p.voltage - P_OFFSET) * P_GAIN
+#                 ina_p = read_p(SHUNT_OHMS, MAX_EXPECTED_AMPS)
+#                 ina_p.configure(ina_p.RANGE_16V, ina_p.GAIN_AUTO)
+#                 dt_voltage_temp[:1] = ina_p.voltage()
+                dt_voltage_temp[:1] = realtime_voltage                
 
-                dt_voltage_temp[:1] = ina_p.voltage()                
             except:
                 toast("error read voltage")
                 dt_voltage_temp[:1] = 0.0
@@ -593,10 +629,10 @@ class ScreenData(BoxLayout):
         global dt_current
         global dt_voltage
         
-        data_base = np.empty([5, 1])
-        dt_measure = np.empty(6)
-        dt_current = np.empty(10)
-        dt_voltage = np.empty(10)
+        data_base = np.zeros([5, 1])
+        dt_measure = np.zeros(6)
+        dt_current = np.zeros(10)
+        dt_voltage = np.zeros(10)
         
         layout = self.ids.layout_tables
         
@@ -803,8 +839,8 @@ class ScreenGraph(BoxLayout):
         global data_base
         global data_pos
 
-        data_base = np.empty([5, 1])
-        data_pos = np.empty([2, 1])
+        data_base = np.zeros([5, 1])
+        data_pos = np.zeros([2, 1])
 
         try:
             self.ids.layout_graph.clear_widgets()
