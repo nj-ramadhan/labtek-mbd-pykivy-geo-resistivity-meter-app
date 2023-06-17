@@ -21,11 +21,6 @@ from datetime import datetime
 from pathlib import Path
 from kivy.properties import ObjectProperty
 import time
-import board
-import busio
-import adafruit_ads1x15.ads1115 as ADS
-from adafruit_ads1x15.analog_in import AnalogIn
-import RPi.GPIO as GPIO
 
 plt.style.use('bmh')
 
@@ -59,7 +54,7 @@ colors = {
     },
 }
 
-DEBUG = False
+DEBUG = True
     
 STEPS = 51
 # MAX_POINT_WENNER = 500
@@ -69,10 +64,10 @@ ELECTRODES_NUM = 48
 PIN_ENABLE = 23 #16
 PIN_POLARITY = 24 #18
 
-C_OFFSET = 2.52
-C_GAIN = 5.0
+C_OFFSET = 2.5412
+C_GAIN = 5.0 * 1000.0 #channge from A to mA with gain
 
-P_OFFSET = 0.00
+P_OFFSET = 0.001
 P_GAIN = 1.0
 # SHUNT_OHMS = 0.1
 # MAX_EXPECTED_AMPS = 0.1
@@ -86,6 +81,12 @@ DISK_ADDRESS = Path("/media/" + USERNAME + "/RESDONGLE/")
 SERIAL_NUMBER = "2301212112233412"
 
 if(not DEBUG):
+    # import ADC and I2C library 
+    import board
+    import busio
+    import adafruit_ads1x15.ads1115 as ADS
+    from adafruit_ads1x15.analog_in import AnalogIn
+    import RPi.GPIO as GPIO    
     # GPIO control and sensor acquisiton
     import RPi.GPIO as GPIO
     i2c = busio.I2C(board.SCL, board.SDA)
@@ -104,9 +105,8 @@ x_electrode = np.zeros((4, MAX_POINT))
 n_electrode = np.zeros((ELECTRODES_NUM, STEPS))
 c_electrode = np.array(["#196BA5","#FF0000","#FFDD00","#00FF00","#00FFDD"])
 l_electrode = np.array(["Datum","C1","C2","P1","P2"])
-data_base = np.zeros([5, 1])
-data_pos = np.zeros([2, 1])
-data_pos = np.zeros([2, 1])
+data_base = np.zeros([5, 0])
+data_pos = np.zeros([2, 0])
 
 checks_mode = []
 checks_config = []
@@ -128,6 +128,7 @@ flag_autosave_graph = False
 
 count_mounting = 0
 inject_state = 0
+graph_state = 0
 
 class ScreenSplash(BoxLayout):
     screen_manager = ObjectProperty(None)
@@ -171,6 +172,7 @@ class ScreenSetting(BoxLayout):
             self.ids.bt_measure.md_bg_color = "#196BA5"
 
     def delayed_init(self, dt):
+        self.ids.bt_shutdown.md_bg_color = "#A50000"
         self.ids.mode_ves.active = True
 
         self.fig, self.ax = plt.subplots()
@@ -397,8 +399,13 @@ class ScreenSetting(BoxLayout):
 
     def exec_shutdown(self):
         # os.system("shutdown /s /t 1") #for windows os
-        toast("shutting down system")
-        os.system("shutdown -h now")
+        global flag_run
+
+        if(not flag_run):        
+            toast("shutting down system")
+            os.system("shutdown -h now")
+        else:
+            toast("cannot shutting down while measuring")
 
 class ScreenData(BoxLayout):
     screen_manager = ObjectProperty(None)
@@ -438,6 +445,7 @@ class ScreenData(BoxLayout):
         
             elif("(SP) SELF POTENTIAL" in dt_mode):
                 if(flag_measure == False):
+                    Clock.schedule_interval(self.measurement_sampling, (dt_cycle * dt_time) / 10000)
                     Clock.schedule_interval(self.measurement_check, ((4 * dt_cycle * dt_time) / 1000))
                 
                 flag_measure = True
@@ -509,7 +517,7 @@ class ScreenData(BoxLayout):
         if(current > 0.0):
             resistivity = voltage / current
         else:
-            resistivity = 0
+            resistivity = 0.0
             
         std_resistivity = np.std(data_base[2, :])
         ip_decay = (np.sum(dt_voltage) / voltage ) * ((dt_cycle * dt_time)/10000)
@@ -521,6 +529,14 @@ class ScreenData(BoxLayout):
         self.ids.realtime_voltage.text = f"{voltage:.3f}"
         self.ids.realtime_current.text = f"{current:.3f}"
         self.ids.realtime_resistivity.text = f"{resistivity:.3f}"
+
+        avg_voltage = np.average(data_base[0, :])
+        avg_current = np.average(data_base[1, :])
+        avg_resistivity = np.average(data_base[2, :])
+
+        self.ids.average_voltage.text = f"{avg_voltage:.3f}"
+        self.ids.average_current.text = f"{avg_current:.3f}"
+        self.ids.average_resistivity.text = f"{avg_resistivity:.3f}"
 
         self.data_tables.row_data=[(f"{i + 1}", f"{data_base[0,i]:.3f}", f"{data_base[1,i]:.3f}", f"{data_base[2,i]:.3f}", f"{data_base[3,i]:.3f}", f"{data_base[4,i]:.3f}") for i in range(len(data_base[1]))]
 
@@ -606,6 +622,7 @@ class ScreenData(BoxLayout):
         dt_current = dt_current_temp       
 
     def delayed_init(self, dt):
+        self.ids.bt_shutdown.md_bg_color = "#A50000"
         layout = self.ids.layout_tables
         
         self.data_tables = MDDataTable(
@@ -613,7 +630,7 @@ class ScreenData(BoxLayout):
             pagination_menu_pos="auto",
             rows_num=4,
             column_data=[
-                ("No.", dp(10)),
+                ("No.", dp(10), self.sort_on_num),
                 ("Volt [V]", dp(27)),
                 ("Curr [mA]", dp(27)),
                 ("Resi [kOhm]", dp(27)),
@@ -629,7 +646,7 @@ class ScreenData(BoxLayout):
         global dt_current
         global dt_voltage
         
-        data_base = np.zeros([5, 1])
+        data_base = np.zeros([5, 0])
         dt_measure = np.zeros(6)
         dt_current = np.zeros(10)
         dt_voltage = np.zeros(10)
@@ -641,7 +658,7 @@ class ScreenData(BoxLayout):
             pagination_menu_pos="auto",
             rows_num=4,
             column_data=[
-                ("No.", dp(10)),
+                ("No.", dp(10), self.sort_on_num),
                 ("Volt [V]", dp(27)),
                 ("Curr [mA]", dp(27)),
                 ("Resi [kOhm]", dp(27)),
@@ -651,6 +668,17 @@ class ScreenData(BoxLayout):
         )
         layout.add_widget(self.data_tables)
 
+    def sort_on_num(self, data):
+        try:
+            return zip(
+                *sorted(
+                    enumerate(data),
+                    key=lambda l: l[0][0]
+                )
+            )
+        except:
+            toast("error sorting data")
+            
     def save_data(self):
         global data_base
         global dt_distance
@@ -683,7 +711,6 @@ class ScreenData(BoxLayout):
             mode = 7
 
         try:
-
             now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
             # disk = str(DISK_ADDRESS) + now
             disk = os.getcwd() + now
@@ -729,8 +756,13 @@ class ScreenData(BoxLayout):
 
     def exec_shutdown(self):
         # os.system("shutdown /s /t 1") #for windows os
-        toast("shutting down system")
-        os.system("shutdown -h now")
+        global flag_run
+
+        if(not flag_run):        
+            toast("shutting down system")
+            os.system("shutdown -h now")
+        else:
+            toast("cannot shutting down while measuring")
 
 class ScreenGraph(BoxLayout):
     screen_manager = ObjectProperty(None)
@@ -748,20 +780,27 @@ class ScreenGraph(BoxLayout):
         global dt_time
         global data_base
         global flag_autosave_graph
+        global graph_state
+
+        if(graph_state > 10):
+            graph_state = 0
 
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#A50000"
-            Clock.schedule_interval(self.measurement_check, dt_time / 100)
             flag_autosave_graph = True
+            if(graph_state == 10):
+                self.update_graph()
+            
         else:
             self.ids.bt_measure.text = "RUN MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#196BA5"
-            Clock.unschedule(self.measurement_check)
             if(flag_autosave_graph):
                 self.autosave_graph()
-                flag_autosave_graph = False  
-        
+                flag_autosave_graph = False
+
+        graph_state += 1
+
         if not DISK_ADDRESS.exists() and flag_dongle:
             try:
                 print("try mounting")
@@ -782,7 +821,7 @@ class ScreenGraph(BoxLayout):
                 if(count_mounting > 10):
                     flag_dongle = False 
 
-    def measurement_check(self, dt):
+    def update_graph(self):
         global flag_run
         global x_datum
         global y_datum
@@ -817,6 +856,7 @@ class ScreenGraph(BoxLayout):
             self.measure()
 
     def delayed_init(self, dt):
+        self.ids.bt_shutdown.md_bg_color = "#A50000"
         self.fig, self.ax = plt.subplots()
         self.fig.set_facecolor("#eeeeee")
         self.fig.tight_layout()
@@ -839,8 +879,8 @@ class ScreenGraph(BoxLayout):
         global data_base
         global data_pos
 
-        data_base = np.zeros([5, 1])
-        data_pos = np.zeros([2, 1])
+        data_base = np.zeros([5, 0])
+        data_pos = np.zeros([2, 0])
 
         try:
             self.ids.layout_graph.clear_widgets()
@@ -894,8 +934,13 @@ class ScreenGraph(BoxLayout):
 
     def exec_shutdown(self):
         # os.system("shutdown /s /t 1") #for windows os
-        toast("shutting down system")
-        os.system("shutdown -h 1")
+        global flag_run
+
+        if(not flag_run):        
+            toast("shutting down system")
+            os.system("shutdown -h now")
+        else:
+            toast("cannot shutting down while measuring")
 
 class ResistivityMeterApp(MDApp):
     def build(self):
