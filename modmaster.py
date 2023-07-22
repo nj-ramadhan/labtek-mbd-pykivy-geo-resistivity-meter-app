@@ -1,4 +1,4 @@
-https://microdigisoft.com/rs-485-serial-communication-between-raspberry-pi-and-arduino-uno/
+#https://microdigisoft.com/rs-485-serial-communication-between-raspberry-pi-and-arduino-uno/
 
 
 import time
@@ -7,14 +7,15 @@ import RPi.GPIO as GPIO
 from time import sleep
 
 GPIO.setwarnings(False)
-GPIO.setmode(GPIO.BOARD)
-GPIO.setup(7, GPIO.OUT, initial=GPIO.HIGH) // Make DE  RE pin high the write a values.
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(17, GPIO.OUT, initial=GPIO.HIGH) # Make DE  RE pin high the write a values.
+GPIO.setup(27, GPIO.OUT, initial=GPIO.HIGH)
 
 send = serial.Serial(
-    port='/dev/serial0',
-    baudrate = 9600,
+    port='/dev/S0',
+    baudrate = 19200,
     parity=serial.PARITY_NONE,
-    stopbits=serial.STOPBITS_ONE,
+    stopbits=serial.STOPBITS_TWO,
     bytesize=serial.EIGHTBITS,
     timeout=1
 )
