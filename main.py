@@ -645,28 +645,35 @@ class ScreenData(BoxLayout):
         global dt_measure
         global dt_current
         global dt_voltage
+        global flag_run
+
+        if(not flag_run):        
+            toast("restetting data")
+            data_base = np.zeros([5, 0])
+            dt_measure = np.zeros(6)
+            dt_current = np.zeros(10)
+            dt_voltage = np.zeros(10)
+            
+            layout = self.ids.layout_tables
+            
+            self.data_tables = MDDataTable(
+                use_pagination=True,
+                pagination_menu_pos="auto",
+                rows_num=4,
+                column_data=[
+                    ("No.", dp(10), self.sort_on_num),
+                    ("Volt [V]", dp(27)),
+                    ("Curr [mA]", dp(27)),
+                    ("Resi [kOhm]", dp(27)),
+                    ("Std Dev Res", dp(27)),
+                    ("IP (R decay)", dp(27)),
+                ],
+            )
+            layout.add_widget(self.data_tables)
+
+        else:
+            toast("cannot reset data while measuring")
         
-        data_base = np.zeros([5, 0])
-        dt_measure = np.zeros(6)
-        dt_current = np.zeros(10)
-        dt_voltage = np.zeros(10)
-        
-        layout = self.ids.layout_tables
-        
-        self.data_tables = MDDataTable(
-            use_pagination=True,
-            pagination_menu_pos="auto",
-            rows_num=4,
-            column_data=[
-                ("No.", dp(10), self.sort_on_num),
-                ("Volt [V]", dp(27)),
-                ("Curr [mA]", dp(27)),
-                ("Resi [kOhm]", dp(27)),
-                ("Std Dev Res", dp(27)),
-                ("IP (R decay)", dp(27)),
-            ],
-        )
-        layout.add_widget(self.data_tables)
 
     def sort_on_num(self, data):
         try:
@@ -878,26 +885,32 @@ class ScreenGraph(BoxLayout):
     def reset_graph(self):
         global data_base
         global data_pos
+        global flag_run
 
-        data_base = np.zeros([5, 0])
-        data_pos = np.zeros([2, 0])
+        if(not flag_run):        
+            toast("restetting graph")
+            data_base = np.zeros([5, 0])
+            data_pos = np.zeros([2, 0])
 
-        try:
-            self.ids.layout_graph.clear_widgets()
-            self.fig, self.ax = plt.subplots()
-            self.fig.set_facecolor("#eeeeee")
-            self.fig.tight_layout()
-            l, b, w, h = self.ax.get_position().bounds
-            self.ax.set_position(pos=[l, b + 0.3*h, w, h*0.7])
+            try:
+                self.ids.layout_graph.clear_widgets()
+                self.fig, self.ax = plt.subplots()
+                self.fig.set_facecolor("#eeeeee")
+                self.fig.tight_layout()
+                l, b, w, h = self.ax.get_position().bounds
+                self.ax.set_position(pos=[l, b + 0.3*h, w, h*0.7])
+                
+                self.ax.set_xlabel("distance [m]", fontsize=10)
+                self.ax.set_ylabel("n", fontsize=10)
+
+                self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))        
+                print("successfully reset graphic")
             
-            self.ax.set_xlabel("distance [m]", fontsize=10)
-            self.ax.set_ylabel("n", fontsize=10)
+            except:
+                print("error reset graphic")
 
-            self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))        
-            print("successfully reset graphic")
-        
-        except:
-            print("error reset graphic")
+        else:
+            toast("cannot reset graph while measuring")
 
 
     def save_graph(self):
