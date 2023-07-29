@@ -1,7 +1,8 @@
-import numpy as np
-import kivy
 import sys
 import os
+import numpy as np
+np.set_printoptions(threshold=sys.maxsize)
+import kivy
 from kivymd.app import MDApp
 from kivymd.toast import toast
 from kivymd.uix.datatables import MDDataTable
@@ -21,6 +22,9 @@ from datetime import datetime
 from pathlib import Path
 from kivy.properties import ObjectProperty
 import time
+import minimalmodbus
+import serial
+from serial.tools import list_ports
 
 plt.style.use('bmh')
 
@@ -80,6 +84,12 @@ USERNAME = 'labtek'
 DISK_ADDRESS = Path("/media/" + USERNAME + "/RESDONGLE/")
 SERIAL_NUMBER = "2301212112233412"
 
+BAUDRATE = 19200
+BYTESIZE = 8
+PARITY = serial.PARITY_NONE
+STOPBIT = 2
+TIMEOUT = 0.05
+
 if(not DEBUG):
     # import ADC and I2C library 
     import board
@@ -125,6 +135,14 @@ flag_measure = False
 flag_dongle = True
 flag_autosave_data = False
 flag_autosave_graph = False
+
+# data_rtu1 = np.random.randint(2, size=36)
+data_rtu1 = np.zeros(36, dtype=int)
+data_rtu2 = np.zeros(36, dtype=int)
+data_rtu3 = np.zeros(36, dtype=int)
+data_rtu4 = np.zeros(36, dtype=int)
+data_rtu5 = np.zeros(36, dtype=int)
+data_rtu6 = np.zeros(36, dtype=int)
 
 count_mounting = 0
 inject_state = 0
@@ -172,6 +190,9 @@ class ScreenSetting(BoxLayout):
             self.ids.bt_measure.md_bg_color = "#196BA5"
 
     def delayed_init(self, dt):
+        global rtu1, rtu2, rtu3, rtu4, rtu5, rtu6
+        global data_rtu1, data_rtu2, data_rtu3, data_rtu4, data_rtu5, data_rtu6
+
         self.ids.bt_shutdown.md_bg_color = "#A50000"
         self.ids.mode_ves.active = True
 
@@ -185,6 +206,31 @@ class ScreenSetting(BoxLayout):
         self.ax.set_ylabel("n", fontsize=10)
 
         self.ids.layout_illustration.add_widget(FigureCanvasKivyAgg(self.fig))
+
+        try:
+            ports = list_ports.comports(include_links=False)
+            for port in ports :
+                com_port = port.device
+                toast("switching box is connected to " + com_port)
+                print("switching box is connected to " + com_port)
+
+            rtu1 = minimalmodbus.Instrument(com_port, 1 ,mode=minimalmodbus.MODE_RTU)
+            rtu2 = minimalmodbus.Instrument(com_port, 2 ,mode=minimalmodbus.MODE_RTU)
+            rtu3 = minimalmodbus.Instrument(com_port, 3 ,mode=minimalmodbus.MODE_RTU)
+            rtu4 = minimalmodbus.Instrument(com_port, 4 ,mode=minimalmodbus.MODE_RTU)
+            rtu5 = minimalmodbus.Instrument(com_port, 5 ,mode=minimalmodbus.MODE_RTU)
+            rtu6 = minimalmodbus.Instrument(com_port, 6 ,mode=minimalmodbus.MODE_RTU)
+
+            rtu1.write_bits(80, data_rtu1.tolist()) 
+            rtu2.write_bits(80, data_rtu2.tolist()) 
+            rtu3.write_bits(80, data_rtu3.tolist()) 
+            rtu4.write_bits(80, data_rtu4.tolist()) 
+            rtu5.write_bits(80, data_rtu5.tolist()) 
+            rtu6.write_bits(80, data_rtu6.tolist()) 
+
+        except:
+            toast("no switching box connected")
+            print("no switching box connected")
 
     def illustrate(self):
         global dt_mode
@@ -312,6 +358,16 @@ class ScreenSetting(BoxLayout):
                     num_trial = 0
         else:
             pass
+
+        data_c1 = np.trim_zeros(x_electrode[0,:])
+        data_p1 = np.trim_zeros(x_electrode[1,:])
+        data_p2 = np.trim_zeros(x_electrode[2,:])
+        data_c2 = np.trim_zeros(x_electrode[3,:])
+
+        print(data_c1)
+        print(data_p1)
+        print(data_p2)
+        print(data_c2)
 
         self.fig.set_facecolor("#eeeeee")
         self.fig.tight_layout()
@@ -445,9 +501,9 @@ class ScreenData(BoxLayout):
         
             elif("(SP) SELF POTENTIAL" in dt_mode):
                 if(flag_measure == False):
-                    Clock.schedule_interval(self.measurement_sampling, (dt_cycle * dt_time) / 10000)
                     Clock.schedule_interval(self.measurement_check, ((4 * dt_cycle * dt_time) / 1000))
-                
+                    Clock.schedule_interval(self.measurement_sampling, (dt_cycle * dt_time) / 10000)
+                    
                 flag_measure = True
                 
             elif("(R) RESISTIVITY" in dt_mode):
