@@ -553,9 +553,11 @@ class ScreenData(BoxLayout):
             Clock.unschedule(self.measurement_check)
             Clock.unschedule(self.inject_current)
             inject_state = 0
+            flag_measure = False
             step = 0
             max_step = 0
-            flag_measure = False
+            self.reset_switching()
+            
             if(not DEBUG):
                 # GPIO.output(PIN_FWD, GPIO.LOW)
                 # GPIO.output(PIN_REV, GPIO.LOW)
@@ -567,25 +569,25 @@ class ScreenData(BoxLayout):
 
 #         self.ids.bt_save_data.disabled = False
             
-        # if not DISK_ADDRESS.exists() and flag_dongle:
-        #     try:
-        #         print("try mounting")
-        #         serial_file = str(DISK_ADDRESS) + "/serial.key"
-        #         # print(serial_file)
-        #         with open(serial_file,"r") as f:
-        #             serial_number = f.readline()
-        #             if serial_number == SERIAL_NUMBER:
-        #                 print("success, serial number is valid")
-        #                 self.ids.bt_save_data.disabled = False
-        #             else:
-        #                 print("fail, serial number is invalid")
-        #                 self.ids.bt_save_data.disabled = True                    
-        #     except:
-        #         # print(f"Could not mount {DISK_ADDRESS}")
-        #         self.ids.bt_save_data.disabled = True
-        #         count_mounting += 1
-        #         if(count_mounting > 10):
-        #             flag_dongle = False 
+        if not DISK_ADDRESS.exists() and flag_dongle:
+            try:
+                print("try mounting")
+                serial_file = str(DISK_ADDRESS) + "/serial.key"
+                # print(serial_file)
+                with open(serial_file,"r") as f:
+                    serial_number = f.readline()
+                    if serial_number == SERIAL_NUMBER:
+                        print("success, serial number is valid")
+                        self.ids.bt_save_data.disabled = False
+                    else:
+                        print("fail, serial number is invalid")
+                        self.ids.bt_save_data.disabled = True                    
+            except:
+                # print(f"Could not mount {DISK_ADDRESS}")
+                self.ids.bt_save_data.disabled = True
+                count_mounting += 1
+                if(count_mounting > 10):
+                    flag_dongle = False 
  
 
     def measurement_check(self, dt):
@@ -630,10 +632,7 @@ class ScreenData(BoxLayout):
     def switching_commands(self):
         global step
         global max_step
-
         try:
-            # print("data_rtu : ", data_rtu.T[step,:])
-
             reshaped_data_rtu = data_rtu.T[step,:].reshape(6, 36)
             print("reshaped_data_rtu", reshaped_data_rtu)
 
@@ -643,16 +642,34 @@ class ScreenData(BoxLayout):
             data_rtu4 = reshaped_data_rtu[3]
             data_rtu5 = reshaped_data_rtu[4]
             data_rtu6 = reshaped_data_rtu[5]
-            # print(data_rtu1)
 
-            rtu1.write_bits(80, data_rtu1) 
-            rtu2.write_bits(80, data_rtu2) 
-            rtu3.write_bits(80, data_rtu3) 
-            rtu4.write_bits(80, data_rtu4) 
-            rtu5.write_bits(80, data_rtu5) 
-            rtu6.write_bits(80, data_rtu6) 
+            rtu1.write_bits(80, data_rtu1.tolist()) 
+            rtu2.write_bits(80, data_rtu2.tolist()) 
+            rtu3.write_bits(80, data_rtu3.tolist()) 
+            rtu4.write_bits(80, data_rtu4.tolist()) 
+            rtu5.write_bits(80, data_rtu5.tolist()) 
+            rtu6.write_bits(80, data_rtu6.tolist()) 
         except:
-            toast("error send switching commands")
+            # toast("error send switching commands")
+            print("error send switching commands")
+
+    def reset_switching(self):
+        try:
+            data_rtu1 = np.zeros(36, dtype=int)
+            data_rtu2 = np.zeros(36, dtype=int)
+            data_rtu3 = np.zeros(36, dtype=int)
+            data_rtu4 = np.zeros(36, dtype=int)
+            data_rtu5 = np.zeros(36, dtype=int)
+            data_rtu6 = np.zeros(36, dtype=int)
+
+            rtu1.write_bits(80, data_rtu1.tolist()) 
+            rtu2.write_bits(80, data_rtu2.tolist()) 
+            rtu3.write_bits(80, data_rtu3.tolist()) 
+            rtu4.write_bits(80, data_rtu4.tolist()) 
+            rtu5.write_bits(80, data_rtu5.tolist()) 
+            rtu6.write_bits(80, data_rtu6.tolist()) 
+        except:
+            # toast("error send switching commands")
             print("error send switching commands")
 
     def inject_current(self, dt):
