@@ -136,13 +136,16 @@ flag_dongle = True
 flag_autosave_data = False
 flag_autosave_graph = False
 
-# data_rtu1 = np.random.randint(2, size=36)
+data_rtu = np.zeros([216, 0], dtype=int)
 data_rtu1 = np.zeros(36, dtype=int)
 data_rtu2 = np.zeros(36, dtype=int)
 data_rtu3 = np.zeros(36, dtype=int)
 data_rtu4 = np.zeros(36, dtype=int)
 data_rtu5 = np.zeros(36, dtype=int)
 data_rtu6 = np.zeros(36, dtype=int)
+
+step = 0
+max_step = 1
 
 count_mounting = 0
 inject_state = 0
@@ -242,6 +245,8 @@ class ScreenSetting(BoxLayout):
         global x_datum
         global y_datum
         global data_pos
+        global data_rtu
+        global max_step
 
         dt_distance = self.ids.slider_distance.value
         dt_constant = self.ids.slider_constant.value
@@ -252,6 +257,7 @@ class ScreenSetting(BoxLayout):
         self.ids.layout_illustration.remove_widget(FigureCanvasKivyAgg(self.fig))
         x_datum = np.zeros(MAX_POINT)
         y_datum = np.zeros(MAX_POINT)
+        x_electrode = np.zeros((4, MAX_POINT))
         # x_datum = np.zeros(MAX_POINT)
         # y_datum = np.zeros(MAX_POINT)
 
@@ -340,15 +346,15 @@ class ScreenSetting(BoxLayout):
                 count_datum = count_datum + num_datum
                 num_datum = 0     
 
-            num_step = 1
-            num_trial = 1
+            num_step = 0
+            num_trial = 0
             for i in range(nmax_available):
                 for j in range(ELECTRODES_NUM - 1 - i * 2):
-                    for k in range(ELECTRODES_NUM - i * 2 - j):
-                        x_electrode[1, num_step] = j
-                        x_electrode[0, num_step] = j + 1 + (i - 1)
-                        x_electrode[2, num_step] = num_trial + x_electrode[0, num_step]
-                        x_electrode[3, num_step] = i + x_electrode[2, num_step]
+                    for k in range(ELECTRODES_NUM - i * 2 - j - 1):
+                        x_electrode[1, num_step] = j - 1
+                        x_electrode[0, num_step] = j + (i - 2)
+                        x_electrode[2, num_step] = num_trial + 2 + x_electrode[0, num_step]
+                        x_electrode[3, num_step] = i + 1 + x_electrode[2, num_step]
                         x_datum[num_step] = (x_electrode[0, num_step] + (x_electrode[2, num_step] - x_electrode[0, num_step])/2) * dt_distance
                         y_datum[num_step] = (i + 1) * dt_distance
                         
@@ -357,17 +363,33 @@ class ScreenSetting(BoxLayout):
 
                     num_trial = 0
         else:
-            pass
+            x_electrode[0,0] = 0
+            x_electrode[1,0] = 1
+            x_electrode[2,0] = 2
+            x_electrode[3,0] = 3
 
-        data_c1 = np.trim_zeros(x_electrode[0,:])
-        data_p1 = np.trim_zeros(x_electrode[1,:])
-        data_p2 = np.trim_zeros(x_electrode[2,:])
-        data_c2 = np.trim_zeros(x_electrode[3,:])
+        try:
+            max_step = np.trim_zeros(x_electrode[1,:]).size
 
-        print(data_c1)
-        print(data_p1)
-        print(data_p2)
-        print(data_c2)
+            data_c1 = x_electrode[0,:max_step]
+            data_p1 = x_electrode[1,:max_step]
+            data_p2 = x_electrode[2,:max_step]
+            data_c2 = x_electrode[3,:max_step]
+
+            arr_electrode = np.array([data_c1, data_p1, data_p2, data_c2], dtype=int)
+            print(arr_electrode.T)
+
+            data_rtu = np.zeros([216,max_step], dtype=int)
+            for i in range(max_step):
+                data_rtu[arr_electrode[0,i]*4, i] = 1
+                data_rtu[arr_electrode[1,i]*4 + 1, i] = 1
+                data_rtu[arr_electrode[2,i]*4 + 2, i] = 1
+                data_rtu[arr_electrode[3,i]*4 + 3, i] = 1
+            # print(data_rtu.T)
+
+        except:
+            print("error simulating")
+            toast("error simulating")
 
         self.fig.set_facecolor("#eeeeee")
         self.fig.tight_layout()
@@ -484,6 +506,8 @@ class ScreenData(BoxLayout):
         global data_base
         global inject_state
         global flag_autosave_data
+        global step
+        global max_step
 
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
@@ -529,6 +553,8 @@ class ScreenData(BoxLayout):
             Clock.unschedule(self.measurement_check)
             Clock.unschedule(self.inject_current)
             inject_state = 0
+            step = 0
+            max_step = 0
             flag_measure = False
             if(not DEBUG):
                 # GPIO.output(PIN_FWD, GPIO.LOW)
@@ -541,25 +567,25 @@ class ScreenData(BoxLayout):
 
 #         self.ids.bt_save_data.disabled = False
             
-        if not DISK_ADDRESS.exists() and flag_dongle:
-            try:
-                print("try mounting")
-                serial_file = str(DISK_ADDRESS) + "/serial.key"
-                print(serial_file)
-                with open(serial_file,"r") as f:
-                    serial_number = f.readline()
-                    if serial_number == SERIAL_NUMBER:
-                        print("success, serial number is valid")
-                        self.ids.bt_save_data.disabled = False
-                    else:
-                        print("fail, serial number is invalid")
-                        self.ids.bt_save_data.disabled = True                    
-            except:
-                print(f"Could not mount {DISK_ADDRESS}")
-                self.ids.bt_save_data.disabled = True
-                count_mounting += 1
-                if(count_mounting > 10):
-                    flag_dongle = False 
+        # if not DISK_ADDRESS.exists() and flag_dongle:
+        #     try:
+        #         print("try mounting")
+        #         serial_file = str(DISK_ADDRESS) + "/serial.key"
+        #         # print(serial_file)
+        #         with open(serial_file,"r") as f:
+        #             serial_number = f.readline()
+        #             if serial_number == SERIAL_NUMBER:
+        #                 print("success, serial number is valid")
+        #                 self.ids.bt_save_data.disabled = False
+        #             else:
+        #                 print("fail, serial number is invalid")
+        #                 self.ids.bt_save_data.disabled = True                    
+        #     except:
+        #         # print(f"Could not mount {DISK_ADDRESS}")
+        #         self.ids.bt_save_data.disabled = True
+        #         count_mounting += 1
+        #         if(count_mounting > 10):
+        #             flag_dongle = False 
  
 
     def measurement_check(self, dt):
@@ -567,6 +593,11 @@ class ScreenData(BoxLayout):
         global data_base
         global dt_current
         global dt_voltage
+        global data_rtu
+        global rtu1, rtu2, rtu3, rtu4, rtu5, rtu6
+        global data_rtu1, data_rtu2, data_rtu3, data_rtu4, data_rtu5, data_rtu6
+        global step
+        global max_step
 
         voltage = np.max(np.fabs(dt_voltage))
         current = np.max(np.fabs(dt_current))
@@ -596,8 +627,37 @@ class ScreenData(BoxLayout):
 
         self.data_tables.row_data=[(f"{i + 1}", f"{data_base[0,i]:.3f}", f"{data_base[1,i]:.3f}", f"{data_base[2,i]:.3f}", f"{data_base[3,i]:.3f}", f"{data_base[4,i]:.3f}") for i in range(len(data_base[1]))]
 
+    def switching_commands(self):
+        global step
+        global max_step
+
+        try:
+            # print("data_rtu : ", data_rtu.T[step,:])
+
+            reshaped_data_rtu = data_rtu.T[step,:].reshape(6, 36)
+            print("reshaped_data_rtu", reshaped_data_rtu)
+
+            data_rtu1 = reshaped_data_rtu[0]
+            data_rtu2 = reshaped_data_rtu[1]
+            data_rtu3 = reshaped_data_rtu[2]
+            data_rtu4 = reshaped_data_rtu[3]
+            data_rtu5 = reshaped_data_rtu[4]
+            data_rtu6 = reshaped_data_rtu[5]
+            # print(data_rtu1)
+
+            rtu1.write_bits(80, data_rtu1) 
+            rtu2.write_bits(80, data_rtu2) 
+            rtu3.write_bits(80, data_rtu3) 
+            rtu4.write_bits(80, data_rtu4) 
+            rtu5.write_bits(80, data_rtu5) 
+            rtu6.write_bits(80, data_rtu6) 
+        except:
+            toast("error send switching commands")
+            print("error send switching commands")
+
     def inject_current(self, dt):
         global inject_state
+        global step
 
         if(inject_state > 3):
             Clock.unschedule(self.measurement_sampling)
@@ -605,6 +665,7 @@ class ScreenData(BoxLayout):
             
         if(inject_state == 0):
             Clock.unschedule(self.measurement_sampling)
+            self.switching_commands()
             if(not DEBUG):
                 # GPIO.output(PIN_FWD, GPIO.LOW)
                 # GPIO.output(PIN_REV, GPIO.LOW)
@@ -630,12 +691,14 @@ class ScreenData(BoxLayout):
             
         elif(inject_state == 3):
             Clock.schedule_interval(self.measurement_sampling, (dt_cycle * dt_time) / 10000)
+            step += 1
             if(not DEBUG):
                 GPIO.output(PIN_ENABLE, GPIO.LOW)
                 GPIO.output(PIN_POLARITY, GPIO.LOW)
                 print("inject negative current")
             
-        print("inject: ", inject_state)
+        print("step:", step, ", inject:",inject_state)
+        # print("inject: ", inject_state)
         inject_state += 1
         
     def measurement_sampling(self, dt):
@@ -748,44 +811,50 @@ class ScreenData(BoxLayout):
         global dt_config
         global data_pos
 
-        x_loc = data_pos[0, :]
-        print(x_loc)
+        if(not flag_run):        
+            toast("saving data")
 
-        data = data_base[2, :len(x_loc)]
-        print(data)
+            x_loc = data_pos[0, :]
+            # print(x_loc)
 
-        spaces = np.ones_like(x_loc) * dt_distance
-        print(spaces)
+            data = data_base[2, :len(x_loc)]
+            # print(data)
 
-        data_write = np.vstack((x_loc, spaces, data))
-        print(data_write)
+            spaces = np.ones_like(x_loc) * dt_distance
+            # print(spaces)
 
-        if("WENNER (ALPHA)" in dt_config):
-            mode = 1
-        elif("WENNER (BETA)" in dt_config):
-            mode = 1
-        elif("WENNER (GAMMA)" in dt_config):
-            mode = 1
-        elif("POLE-POLE" in dt_config):
-            mode = 2
-        elif("DIPOLE-DIPOLE" in dt_config):
-            mode = 3
-        elif("SCHLUMBERGER" in dt_config):
-            mode = 7
+            data_write = np.vstack((x_loc, spaces, data))
+            print(data_write)
 
-        try:
-            now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
-            # disk = str(DISK_ADDRESS) + now
-            disk = os.getcwd() + now
-            head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, len(data_base.T[2]))
-            foot="0 \n0 \n0 \n0 \n0"
-            with open(disk,"wb") as f:
-                np.savetxt(f, data_write.T, fmt="%.3f", delimiter="\t", header=head, footer=foot, comments="")
-            print("sucessfully save data")
-            toast("sucessfully save data")
-        except:
-            print("error saving data")
-            toast("error saving data")
+            if("WENNER (ALPHA)" in dt_config):
+                mode = 1
+            elif("WENNER (BETA)" in dt_config):
+                mode = 1
+            elif("WENNER (GAMMA)" in dt_config):
+                mode = 1
+            elif("POLE-POLE" in dt_config):
+                mode = 2
+            elif("DIPOLE-DIPOLE" in dt_config):
+                mode = 3
+            elif("SCHLUMBERGER" in dt_config):
+                mode = 7
+
+            try:
+                now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
+                # disk = str(DISK_ADDRESS) + now
+                disk = os.getcwd() + now
+                head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, len(data_base.T[2]))
+                foot="0 \n0 \n0 \n0 \n0"
+                with open(disk,"wb") as f:
+                    np.savetxt(f, data_write.T, fmt="%.3f", delimiter="\t", header=head, footer=foot, comments="")
+                print("sucessfully save data")
+                toast("sucessfully save data")
+            except:
+                print("error saving data")
+                toast("error saving data")
+
+        else:
+            toast("cannot save data while measuring")
 
     def autosave_data(self):
         global data_base
@@ -868,7 +937,7 @@ class ScreenGraph(BoxLayout):
             try:
                 print("try mounting")
                 serial_file = str(DISK_ADDRESS) + "/serial.key"
-                print(serial_file)
+                # print(serial_file)
                 with open(serial_file,"r") as f:
                     serial_number = f.readline()
                     if serial_number == SERIAL_NUMBER:
@@ -878,7 +947,7 @@ class ScreenGraph(BoxLayout):
                         print("fail, serial number is invalid")
                         self.ids.bt_save_graph.disabled = True                    
             except:
-                print(f"Could not mount {DISK_ADDRESS}")
+                # print(f"Could not mount {DISK_ADDRESS}")
                 self.ids.bt_save_graph.disabled = True
                 count_mounting += 1
                 if(count_mounting > 10):
@@ -970,16 +1039,20 @@ class ScreenGraph(BoxLayout):
 
 
     def save_graph(self):
-        try:
-            now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-            disk = str(DISK_ADDRESS) + now
-            self.fig.savefig(disk)
-            print("sucessfully save graph")
-            toast("sucessfully save graph")
-        except:
-            print("error saving graph")
-            toast("error saving graph")
-                
+        if(not flag_run):        
+            toast("saving graph")
+            try:
+                now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
+                disk = str(DISK_ADDRESS) + now
+                self.fig.savefig(disk)
+                print("sucessfully save graph")
+                toast("sucessfully save graph")
+            except:
+                print("error saving graph")
+                toast("error saving graph")
+        else:
+            toast("cannot save graph while measuring")
+
     def autosave_graph(self):
         try:
             now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
