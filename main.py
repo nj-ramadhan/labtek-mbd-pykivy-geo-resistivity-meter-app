@@ -124,6 +124,7 @@ dt_mode = ""
 dt_config = ""
 dt_distance = 1
 dt_constant = 1
+real_constant = 1
 dt_time = 500
 dt_cycle = 1
 
@@ -602,10 +603,23 @@ class ScreenData(BoxLayout):
         global dt_current
         global dt_voltage
 
+        if("WENNER (ALPHA)" in dt_config):
+            k = 2 * np.pi * dt_distance * dt_constant
+        elif("WENNER (BETA)" in dt_config):
+            k = 6 * np.pi * dt_distance * dt_constant
+        elif("WENNER (GAMMA)" in dt_config):
+            k = 3 * np.pi * dt_distance * dt_constant
+        elif("POLE-POLE" in dt_config):
+            k = 2 * np.pi * dt_distance * dt_constant
+        elif("DIPOLE-DIPOLE" in dt_config):
+            k = np.pi * dt_distance * dt_constant * (dt_constant + 1) * (dt_constant + 2)
+        elif("SCHLUMBERGER" in dt_config):
+            k = np.pi * dt_distance * dt_constant * (dt_constant + 1)
+
         voltage = np.max(np.fabs(dt_voltage))
         current = np.max(np.fabs(dt_current))
         if(current > 0.0):
-            resistivity = voltage / current
+            resistivity = k * voltage / current
         else:
             resistivity = 0.0
             
@@ -794,7 +808,7 @@ class ScreenData(BoxLayout):
         global flag_run
 
         if(not flag_run):        
-            toast("restetting data")
+            toast("resetting data")
             data_base = np.zeros([5, 0])
             dt_measure = np.zeros(6)
             dt_current = np.zeros(10)
@@ -840,6 +854,25 @@ class ScreenData(BoxLayout):
 
         if(not flag_run):
             try:
+                if("WENNER (ALPHA)" in dt_config):
+                    mode = 1
+                    
+                elif("WENNER (BETA)" in dt_config):
+                    mode = 1
+                    
+                elif("WENNER (GAMMA)" in dt_config):
+                    mode = 1
+                    
+                elif("POLE-POLE" in dt_config):
+                    mode = 2
+                    
+                elif("DIPOLE-DIPOLE" in dt_config):
+                    mode = 3
+                    
+                elif("SCHLUMBERGER" in dt_config):
+                    mode = 7
+                    
+
                 toast("saving data")
 
                 x_loc = data_pos[0, :]
@@ -855,20 +888,6 @@ class ScreenData(BoxLayout):
                 if(data_write.size == 0):
                     data_write = np.array([[0,1,2,3]])
                 print(data_write)
-
-                if("WENNER (ALPHA)" in dt_config):
-                    mode = 1
-                elif("WENNER (BETA)" in dt_config):
-                    mode = 1
-                elif("WENNER (GAMMA)" in dt_config):
-                    mode = 1
-                elif("POLE-POLE" in dt_config):
-                    mode = 2
-                elif("DIPOLE-DIPOLE" in dt_config):
-                    mode = 3
-                elif("SCHLUMBERGER" in dt_config):
-                    mode = 7
-
 
                 now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
                 disk = str(DISK_ADDRESS) + now
@@ -1054,7 +1073,7 @@ class ScreenGraph(BoxLayout):
         global flag_run
 
         if(not flag_run):        
-            toast("restetting graph")
+            toast("resetting graph")
             data_base = np.zeros([5, 0])
             data_pos = np.zeros([2, 0])
 
