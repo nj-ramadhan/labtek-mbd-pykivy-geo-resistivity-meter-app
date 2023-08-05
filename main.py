@@ -881,7 +881,7 @@ class ScreenData(BoxLayout):
                 data = data_base[2, :len(x_loc)]
                 # print(data)
 
-                spaces = np.ones_like(x_loc) * dt_distance
+                spaces = data_pos[2, :] - data_pos[1, :]
                 # print(spaces)
 
                 data_write = np.vstack((x_loc, spaces, data))
