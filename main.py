@@ -58,7 +58,7 @@ colors = {
     },
 }
 
-DEBUG = True
+DEBUG = False
     
 STEPS = 51
 # MAX_POINT_WENNER = 500
@@ -79,9 +79,9 @@ P_GAIN = 1.0
 # PIN_FWD = 16
 # PIN_REV = 18
 
-USERNAME = 'labtek'
-# DISK_ADDRESS = Path("/media/pi/RESDONGLE/")
-DISK_ADDRESS = Path("/media/" + USERNAME + "/RESDONGLE/")
+USERNAME = "labtek"
+DISK_ADDRESS = Path("/media/labtek/RESDONGLE/")
+#DISK_ADDRESS = Path("/media/" + USERNAME + "/RESDONGLE/")
 SERIAL_NUMBER = "2301212112233412"
 
 BAUDRATE = 19200
@@ -158,6 +158,11 @@ class ScreenSplash(BoxLayout):
     
     def __init__(self, **kwargs):
         super(ScreenSplash, self).__init__(**kwargs)
+        try:
+            os.system('cmd /c "cd /media"')
+            os.system('cmd /c "sudo rm -r /labtek"')
+        except:
+            pass
         Clock.schedule_interval(self.update_progress_bar, .01)
 
     def update_progress_bar(self, *args):
@@ -213,7 +218,9 @@ class ScreenSetting(BoxLayout):
         try:
             ports = list_ports.comports(include_links=False)
             for port in ports :
-                com_port = port.device
+#                com_port = port.device[0]
+
+                com_port = "/dev/ttyUSB0"
                 toast("switching box is connected to " + com_port)
                 print("switching box is connected to " + com_port)
 
@@ -494,7 +501,7 @@ class ScreenData(BoxLayout):
         
         super(ScreenData, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check, 1)
+        Clock.schedule_interval(self.regular_check, 2)
 
     def regular_check(self, dt):
         global flag_run
@@ -557,7 +564,6 @@ class ScreenData(BoxLayout):
             step = 0
             max_step = 0
             self.reset_switching()
-            
             if(not DEBUG):
                 # GPIO.output(PIN_FWD, GPIO.LOW)
                 # GPIO.output(PIN_REV, GPIO.LOW)
@@ -570,24 +576,24 @@ class ScreenData(BoxLayout):
 #         self.ids.bt_save_data.disabled = False
             
         if not DISK_ADDRESS.exists() and flag_dongle:
-            try:
-                print("try mounting")
-                serial_file = str(DISK_ADDRESS) + "/serial.key"
-                # print(serial_file)
-                with open(serial_file,"r") as f:
-                    serial_number = f.readline()
-                    if serial_number == SERIAL_NUMBER:
-                        print("success, serial number is valid")
-                        self.ids.bt_save_data.disabled = False
-                    else:
-                        print("fail, serial number is invalid")
-                        self.ids.bt_save_data.disabled = True                    
-            except:
-                # print(f"Could not mount {DISK_ADDRESS}")
-                self.ids.bt_save_data.disabled = True
-                count_mounting += 1
-                if(count_mounting > 10):
-                    flag_dongle = False 
+             try:
+                 toast("try mounting")
+                 serial_file = str(DISK_ADDRESS) + "/serial.key"
+                 # print(serial_file)
+                 with open(serial_file,"r") as f:
+                     serial_number = f.readline()
+                     if serial_number == SERIAL_NUMBER:
+                         print("success, serial number is valid")
+                         self.ids.bt_save_data.disabled = False
+                     else:
+                         print("fail, serial number is invalid")
+                         self.ids.bt_save_data.disabled = True                    
+             except:
+                 toast(f"Could not mount Dongle")
+                 self.ids.bt_save_data.disabled = True
+                 count_mounting += 1
+                 if(count_mounting > 10):
+                     flag_dongle = False 
  
 
     def measurement_check(self, dt):
@@ -595,11 +601,6 @@ class ScreenData(BoxLayout):
         global data_base
         global dt_current
         global dt_voltage
-        global data_rtu
-        global rtu1, rtu2, rtu3, rtu4, rtu5, rtu6
-        global data_rtu1, data_rtu2, data_rtu3, data_rtu4, data_rtu5, data_rtu6
-        global step
-        global max_step
 
         voltage = np.max(np.fabs(dt_voltage))
         current = np.max(np.fabs(dt_current))
@@ -632,9 +633,12 @@ class ScreenData(BoxLayout):
     def switching_commands(self):
         global step
         global max_step
+
         try:
+            # print("data_rtu : ", data_rtu.T[step,:])
+
             reshaped_data_rtu = data_rtu.T[step,:].reshape(6, 36)
-            print("reshaped_data_rtu", reshaped_data_rtu)
+            #print("reshaped_data_rtu", reshaped_data_rtu)
 
             data_rtu1 = reshaped_data_rtu[0]
             data_rtu2 = reshaped_data_rtu[1]
@@ -642,6 +646,7 @@ class ScreenData(BoxLayout):
             data_rtu4 = reshaped_data_rtu[3]
             data_rtu5 = reshaped_data_rtu[4]
             data_rtu6 = reshaped_data_rtu[5]
+            # print(data_rtu1)
 
             rtu1.write_bits(80, data_rtu1.tolist()) 
             rtu2.write_bits(80, data_rtu2.tolist()) 
@@ -650,17 +655,21 @@ class ScreenData(BoxLayout):
             rtu5.write_bits(80, data_rtu5.tolist()) 
             rtu6.write_bits(80, data_rtu6.tolist()) 
         except:
-            # toast("error send switching commands")
-            print("error send switching commands")
+            #toast("error send switching commands")
+            #print("error send switching commands")
+            pass
 
     def reset_switching(self):
         try:
+            # print("data_rtu : ", data_rtu.T[step,:])
+
             data_rtu1 = np.zeros(36, dtype=int)
             data_rtu2 = np.zeros(36, dtype=int)
             data_rtu3 = np.zeros(36, dtype=int)
             data_rtu4 = np.zeros(36, dtype=int)
             data_rtu5 = np.zeros(36, dtype=int)
             data_rtu6 = np.zeros(36, dtype=int)
+            # print(data_rtu1)
 
             rtu1.write_bits(80, data_rtu1.tolist()) 
             rtu2.write_bits(80, data_rtu2.tolist()) 
@@ -669,8 +678,9 @@ class ScreenData(BoxLayout):
             rtu5.write_bits(80, data_rtu5.tolist()) 
             rtu6.write_bits(80, data_rtu6.tolist()) 
         except:
-            # toast("error send switching commands")
-            print("error send switching commands")
+            #toast("error send switching commands")
+            #print("error send switching commands")
+            pass
 
     def inject_current(self, dt):
         global inject_state
@@ -828,48 +838,62 @@ class ScreenData(BoxLayout):
         global dt_config
         global data_pos
 
-        if(not flag_run):        
-            toast("saving data")
-
-            x_loc = data_pos[0, :]
-            # print(x_loc)
-
-            data = data_base[2, :len(x_loc)]
-            # print(data)
-
-            spaces = np.ones_like(x_loc) * dt_distance
-            # print(spaces)
-
-            data_write = np.vstack((x_loc, spaces, data))
-            print(data_write)
-
-            if("WENNER (ALPHA)" in dt_config):
-                mode = 1
-            elif("WENNER (BETA)" in dt_config):
-                mode = 1
-            elif("WENNER (GAMMA)" in dt_config):
-                mode = 1
-            elif("POLE-POLE" in dt_config):
-                mode = 2
-            elif("DIPOLE-DIPOLE" in dt_config):
-                mode = 3
-            elif("SCHLUMBERGER" in dt_config):
-                mode = 7
-
+        if(not flag_run):
             try:
+                toast("saving data")
+
+                x_loc = data_pos[0, :]
+                # print(x_loc)
+
+                data = data_base[2, :len(x_loc)]
+                # print(data)
+
+                spaces = np.ones_like(x_loc) * dt_distance
+                # print(spaces)
+
+                data_write = np.vstack((x_loc, spaces, data))
+                if(data_write.size == 0):
+                    data_write = np.array([[0,1,2,3]])
+                print(data_write)
+
+                if("WENNER (ALPHA)" in dt_config):
+                    mode = 1
+                elif("WENNER (BETA)" in dt_config):
+                    mode = 1
+                elif("WENNER (GAMMA)" in dt_config):
+                    mode = 1
+                elif("POLE-POLE" in dt_config):
+                    mode = 2
+                elif("DIPOLE-DIPOLE" in dt_config):
+                    mode = 3
+                elif("SCHLUMBERGER" in dt_config):
+                    mode = 7
+
+
                 now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
-                # disk = str(DISK_ADDRESS) + now
-                disk = os.getcwd() + now
+                disk = str(DISK_ADDRESS) + now
+                print(disk)
+                #disk = os.getcwd() + now
                 head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, len(data_base.T[2]))
                 foot="0 \n0 \n0 \n0 \n0"
                 with open(disk,"wb") as f:
                     np.savetxt(f, data_write.T, fmt="%.3f", delimiter="\t", header=head, footer=foot, comments="")
-                print("sucessfully save data")
-                toast("sucessfully save data")
+                print("sucessfully save data to Dongle")
+                toast("sucessfully save data to Dongle")
             except:
-                print("error saving data")
-                toast("error saving data")
-
+                try:
+                    now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
+                    disk = os.getcwd() + now
+                    head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, len(data_base.T[2]))
+                    foot="0 \n0 \n0 \n0 \n0"
+                    with open(disk,"wb") as f:
+                        np.savetxt(f, data_write.T, fmt="%.3f", delimiter="\t", header=head, footer=foot, comments="")
+                    print("sucessfully save data")
+                    toast("sucessfully save data")
+                except:
+                    print("error saving data")
+                    toast("error saving data")
+                
         else:
             toast("cannot save data while measuring")
 
@@ -964,7 +988,7 @@ class ScreenGraph(BoxLayout):
                         print("fail, serial number is invalid")
                         self.ids.bt_save_graph.disabled = True                    
             except:
-                # print(f"Could not mount {DISK_ADDRESS}")
+                toast(f"Could not mount Dongle")
                 self.ids.bt_save_graph.disabled = True
                 count_mounting += 1
                 if(count_mounting > 10):
@@ -1062,11 +1086,18 @@ class ScreenGraph(BoxLayout):
                 now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
                 disk = str(DISK_ADDRESS) + now
                 self.fig.savefig(disk)
-                print("sucessfully save graph")
-                toast("sucessfully save graph")
+                print("sucessfully save graph to Dongle")
+                toast("sucessfully save graph to Dongle")
             except:
-                print("error saving graph")
-                toast("error saving graph")
+                try:
+                    now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
+                    disk = os.getcwd() + now
+                    self.fig.savefig(disk)
+                    print("sucessfully save graph")
+                    toast("sucessfully save graph")
+                except:
+                    print("error saving graph")
+                    toast("error saving graph")
         else:
             toast("cannot save graph while measuring")
 
