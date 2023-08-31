@@ -9,11 +9,14 @@
             orientation: "horizontal"
             padding: 20
 			size_hint_y: 0.1
-            Image:
-                id: logo
-                source:'asset/logo_labtek.png'
-                size_hint_x: 0.2
-                allow_stretch: True
+
+			MDFillRoundFlatIconButton:
+				id: bt_shutdown
+				icon: "power"
+				text: " "
+				font_size: 22
+				size_hint_x: 0.15
+				on_press: root.exec_shutdown()
 
             BoxLayout:
                 orientation: "vertical"
@@ -23,9 +26,15 @@
                     id: subtitle            
                     text: "Automatic Multichannel Resistivity MG-AT"
                     bold: True
-                    font_size: 40
+                    font_size: 30
                     color: 0, 0, 0
-		
+                    
+            Image:
+                id: logo
+                source:'asset/logo_labtek.png'
+                size_hint_x: 0.25
+                allow_stretch: True
+						
 		# graph layout
 		BoxLayout:
 			orientation: "vertical"
@@ -106,13 +115,6 @@
 				size_hint_x: 0.25
 				on_press: root.screen_graph()
 
-			MDFillRoundFlatIconButton:
-				id: bt_shutdown
-				icon: "power"
-				text: "SHUTDOWN"
-				font_size: 22
-				size_hint_x: 0.25
-				on_press: root.exec_shutdown()
 
 
 

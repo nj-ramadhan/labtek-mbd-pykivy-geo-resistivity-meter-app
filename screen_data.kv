@@ -9,11 +9,14 @@
             orientation: "horizontal"
             padding: 20
 			size_hint_y: 0.1
-            Image:
-                id: logo
-                source:'asset/logo_labtek.png'
-                size_hint_x: 0.2
-                allow_stretch: True
+
+			MDFillRoundFlatIconButton:
+				id: bt_shutdown
+				icon: "power"
+				text: " "
+				font_size: 22
+				size_hint_x: 0.15
+				on_press: root.exec_shutdown()
 
             BoxLayout:
                 orientation: "vertical"
@@ -23,9 +26,16 @@
                     id: subtitle            
                     text: "Automatic Multichannel Resistivity MG-AT"
                     bold: True
-                    font_size: 40
+                    font_size: 30
                     color: 0, 0, 0
-		
+                    
+            Image:
+                id: logo
+                source:'asset/logo_labtek.png'
+                size_hint_x: 0.25
+                allow_stretch: True
+
+						
 		# data layout
 		BoxLayout:
 			id: layout_data
@@ -50,6 +60,8 @@
 				BoxLayout:
 					orientation: "vertical"
 					size_hint_x: 0.2
+					padding:20
+					spacing:20
 					canvas.before:
 						Color:
 							rgba: 0, 0, 0, 1
@@ -65,6 +77,7 @@
 
 					BoxLayout:
 						orientation: "horizontal"
+						size_hint_y: 0.4
 
 						BoxLayout:
 							orientation: "vertical"
@@ -102,6 +115,57 @@
 
 							Label:
 								id: realtime_resistivity
+								font_size:16
+								color: 0, 0, 0
+								bold: True
+
+					Label:
+						text: "AVERAGE DATA"
+						bold: True
+						font_size: 16
+						color: 0, 0, 0
+						size_hint_y: 0.1
+
+					BoxLayout:
+						orientation: "horizontal"
+						size_hint_y: 0.4
+
+						BoxLayout:
+							orientation: "vertical"
+							size_hint_x: 0.4
+							Label:
+								text: "Volt [V]"
+								font_size:12
+								color: 0, 0, 0
+
+							Label:
+								text: "Curr [mA]"
+								font_size:12
+								color: 0, 0, 0
+
+							Label:
+								text: "Res [kOhm]"
+								font_size:12
+								color: 0, 0, 0
+
+						BoxLayout:
+							orientation: "vertical"
+							size_hint_x: 0.6
+
+							Label:
+								id: average_voltage
+								font_size:16
+								color: 0, 0, 0
+								bold: True
+
+							Label:
+								id: average_current
+								font_size:16
+								color: 0, 0, 0
+								bold: True
+
+							Label:
+								id: average_resistivity
 								font_size:16
 								color: 0, 0, 0
 								bold: True
@@ -173,13 +237,7 @@
 				size_hint_x: 0.25
 				on_press: root.screen_graph()
 
-			MDFillRoundFlatIconButton:
-				id: bt_shutdown
-				icon: "power"
-				text: "SHUTDOWN"
-				font_size: 22
-				size_hint_x: 0.25
-				on_press: root.exec_shutdown()
+
 
 
 
