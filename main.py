@@ -21,11 +21,6 @@ from datetime import datetime
 from pathlib import Path
 from kivy.properties import ObjectProperty
 import time
-import board
-import busio
-import adafruit_ads1x15.ads1115 as ADS
-from adafruit_ads1x15.analog_in import AnalogIn
-import RPi.GPIO as GPIO
 
 plt.style.use('bmh')
 
@@ -59,7 +54,7 @@ colors = {
     },
 }
 
-DEBUG = False
+DEBUG = True
     
 STEPS = 51
 # MAX_POINT_WENNER = 500
@@ -87,6 +82,11 @@ SERIAL_NUMBER = "2301212112233412"
 
 if(not DEBUG):
     # GPIO control and sensor acquisiton
+    import board
+    import busio
+    import adafruit_ads1x15.ads1115 as ADS
+    from adafruit_ads1x15.analog_in import AnalogIn
+    import RPi.GPIO as GPIO
     import RPi.GPIO as GPIO
     i2c = busio.I2C(board.SCL, board.SDA)
     ads = ADS.ADS1115(i2c)
