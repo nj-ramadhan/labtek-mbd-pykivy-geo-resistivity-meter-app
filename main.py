@@ -54,7 +54,7 @@ colors = {
     },
 }
 
-DEBUG = True
+DEBUG = False
     
 STEPS = 51
 # MAX_POINT_WENNER = 500
@@ -82,17 +82,18 @@ SERIAL_NUMBER = "2301212112233412"
 
 if(not DEBUG):
     # GPIO control and sensor acquisiton
-    import board
-    import busio
-    import adafruit_ads1x15.ads1115 as ADS
-    from adafruit_ads1x15.analog_in import AnalogIn
-    import RPi.GPIO as GPIO
-    import RPi.GPIO as GPIO
-    i2c = busio.I2C(board.SCL, board.SDA)
-    ads = ADS.ADS1115(i2c)
+    try:
+        import board
+        import busio
+        import adafruit_ads1x15.ads1115 as ADS
+        from adafruit_ads1x15.analog_in import AnalogIn
+        i2c = busio.I2C(board.SCL, board.SDA)
+        ads = ADS.ADS1115(i2c)
+    except Exception as e:
+        print(e)
 #     from ina219c import INA219 as read_c
 #     from ina219p import INA219 as read_p
-
+    import RPi.GPIO as GPIO
     GPIO.cleanup
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(PIN_ENABLE, GPIO.OUT)
