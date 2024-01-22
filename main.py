@@ -21,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 from kivy.properties import ObjectProperty
 import time
+import serial
 
 plt.style.use('bmh')
 
@@ -54,8 +55,15 @@ colors = {
     },
 }
 
-DEBUG = False
-    
+DEBUG = True
+
+BAUD_RATE = 9600
+BITS = serial.EIGHTBITS
+PARITY = serial.PARITY_NONE
+STOP_BITS = serial.STOPBITS_ONE
+SLEEP_TIME = 0.25
+PORT = "COM1"
+
 STEPS = 51
 # MAX_POINT_WENNER = 500
 MAX_POINT = 10000
@@ -80,24 +88,25 @@ USERNAME = 'labtek'
 DISK_ADDRESS = Path("/media/" + USERNAME + "/RESDONGLE/")
 SERIAL_NUMBER = "2301212112233412"
 
-if(not DEBUG):
-    # GPIO control and sensor acquisiton
-    try:
-        import board
-        import busio
-        import adafruit_ads1x15.ads1115 as ADS
-        from adafruit_ads1x15.analog_in import AnalogIn
-        i2c = busio.I2C(board.SCL, board.SDA)
-        ads = ADS.ADS1115(i2c)
-    except Exception as e:
-        print(e)
+# if(not DEBUG):
+#     # GPIO control and sensor acquisiton
+#     import RPi.GPIO as GPIO
+#     GPIO.cleanup
+#     GPIO.setmode(GPIO.BCM)
+#     GPIO.setup(PIN_ENABLE, GPIO.OUT)
+#     GPIO.setup(PIN_POLARITY, GPIO.OUT)
+
+#     try:
+#         import board
+#         import busio
+#         import adafruit_ads1x15.ads1115 as ADS
+#         from adafruit_ads1x15.analog_in import AnalogIn
+#         i2c = busio.I2C(board.SCL, board.SDA)
+#         ads = ADS.ADS1115(i2c)
+#     except Exception as e:
+#         print(e)
 #     from ina219c import INA219 as read_c
 #     from ina219p import INA219 as read_p
-    import RPi.GPIO as GPIO
-    GPIO.cleanup
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(PIN_ENABLE, GPIO.OUT)
-    GPIO.setup(PIN_POLARITY, GPIO.OUT)
 
 # x_datum = np.zeros(MAX_POINT)
 # y_datum = np.zeros(MAX_POINT)
@@ -138,6 +147,8 @@ class ScreenSplash(BoxLayout):
     def __init__(self, **kwargs):
         super(ScreenSplash, self).__init__(**kwargs)
         Clock.schedule_interval(self.update_progress_bar, .01)
+        self._port = PORT
+        self._ser = serial.Serial(self._port, BAUD_RATE, BITS, PARITY, STOP_BITS, timeout=SLEEP_TIME)
 
     def update_progress_bar(self, *args):
         if (self.ids.progress_bar.value + 1) < 100:
