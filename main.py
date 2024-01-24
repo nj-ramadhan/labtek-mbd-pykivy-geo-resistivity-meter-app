@@ -479,6 +479,7 @@ class ScreenData(BoxLayout):
             inject_state = 0
             flag_measure = False
             if(not DEBUG):
+                # chenge to communication to exec relay
                 # GPIO.output(PIN_FWD, GPIO.LOW)
                 # GPIO.output(PIN_REV, GPIO.LOW)
                 GPIO.output(PIN_ENABLE, GPIO.HIGH)
@@ -546,6 +547,7 @@ class ScreenData(BoxLayout):
         if(inject_state == 0):
             Clock.unschedule(self.measurement_sampling)
             if(not DEBUG):
+                # chenge to communication to exec relay
                 # GPIO.output(PIN_FWD, GPIO.LOW)
                 # GPIO.output(PIN_REV, GPIO.LOW)
                 GPIO.output(PIN_ENABLE, GPIO.HIGH)
@@ -555,6 +557,7 @@ class ScreenData(BoxLayout):
         elif(inject_state == 1):
             Clock.schedule_interval(self.measurement_sampling, (dt_cycle * dt_time) / 10000)
             if(not DEBUG):
+                # chenge to communication to exec relay
                 GPIO.output(PIN_ENABLE, GPIO.LOW)
                 GPIO.output(PIN_POLARITY, GPIO.HIGH)
                 print("inject positive current")
@@ -562,6 +565,7 @@ class ScreenData(BoxLayout):
         elif(inject_state == 2):
             Clock.unschedule(self.measurement_sampling)
             if(not DEBUG):
+                # chenge to communication to exec relay
                 # GPIO.output(PIN_FWD, GPIO.LOW)
                 # GPIO.output(PIN_REV, GPIO.LOW)
                 GPIO.output(PIN_ENABLE, GPIO.HIGH)
@@ -571,6 +575,7 @@ class ScreenData(BoxLayout):
         elif(inject_state == 3):
             Clock.schedule_interval(self.measurement_sampling, (dt_cycle * dt_time) / 10000)
             if(not DEBUG):
+                # chenge to communication to exec relay
                 GPIO.output(PIN_ENABLE, GPIO.LOW)
                 GPIO.output(PIN_POLARITY, GPIO.LOW)
                 print("inject negative current")
@@ -589,6 +594,7 @@ class ScreenData(BoxLayout):
 
         if(not DEBUG):
             try:
+                # chenge to communication to read analog current
                 chan_c = AnalogIn(ads, ADS.P0)
                 realtime_current = (chan_c.voltage - C_OFFSET) * C_GAIN
 #                 ina_c = read_c(SHUNT_OHMS, MAX_EXPECTED_AMPS)
@@ -600,6 +606,7 @@ class ScreenData(BoxLayout):
                 dt_current_temp[:1] = 0.0
 
             try:
+                # chenge to communication to read analog potential voltage
                 chan_p = AnalogIn(ads, ADS.P1)
                 realtime_voltage = (chan_p.voltage - P_OFFSET) * P_GAIN
 #                 ina_p = read_p(SHUNT_OHMS, MAX_EXPECTED_AMPS)
