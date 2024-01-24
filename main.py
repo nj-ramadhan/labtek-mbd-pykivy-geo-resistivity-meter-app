@@ -58,7 +58,7 @@ colors = {
     },
 }
 
-DEBUG = False
+DEBUG = True
     
 STEPS = 51
 # MAX_POINT_WENNER = 500
@@ -486,12 +486,12 @@ class ScreenSetting(BoxLayout):
         self.screen_manager.current = 'screen_graph'
 
     def exec_shutdown(self):
-        # os.system("shutdown /s /t 1") #for windows os
         global flag_run
 
         if(not flag_run):        
             toast("shutting down system")
-            os.system("shutdown -h now")
+            os.system("shutdown /s /t 1") #for windows os
+            # os.system("shutdown -h now")
         else:
             toast("cannot shutting down while measuring")
 
@@ -975,12 +975,12 @@ class ScreenData(BoxLayout):
         self.screen_manager.current = 'screen_graph'
 
     def exec_shutdown(self):
-        # os.system("shutdown /s /t 1") #for windows os
         global flag_run
 
         if(not flag_run):        
             toast("shutting down system")
-            os.system("shutdown -h now")
+            os.system("shutdown /s /t 1") #for windows os
+            # os.system("shutdown -h now")
         else:
             toast("cannot shutting down while measuring")
 
@@ -1173,12 +1173,12 @@ class ScreenGraph(BoxLayout):
         self.screen_manager.current = 'screen_graph'
 
     def exec_shutdown(self):
-        # os.system("shutdown /s /t 1") #for windows os
         global flag_run
 
         if(not flag_run):        
             toast("shutting down system")
-            os.system("shutdown -h now")
+            os.system("shutdown /s /t 1") #for windows os
+            # os.system("shutdown -h now")
         else:
             toast("cannot shutting down while measuring")
 
