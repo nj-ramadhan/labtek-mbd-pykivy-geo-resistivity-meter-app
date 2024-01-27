@@ -190,7 +190,7 @@ class ScreenSetting(BoxLayout):
                 
                 # change port setting to "COMXX" for windows
                 com_port = "COM4"
-                toast("Switching box is connected to " + com_port)
+                toast("Switching Unit is connected to " + com_port)
                 # print("switching box is connected to " + com_port)
 
             rtu1 = minimalmodbus.Instrument(com_port, 1, mode=minimalmodbus.MODE_RTU)
@@ -379,7 +379,7 @@ class ScreenSetting(BoxLayout):
 
         except:
             # print("error simulating")
-            toast("Error Simulating")
+            toast("Error simulating measurement configuration")
 
         self.fig.set_facecolor("#eeeeee")
         self.fig.tight_layout()
@@ -564,12 +564,13 @@ class ScreenData(BoxLayout):
         if not DISK_ADDRESS.exists() and flag_dongle:
              try:
                  toast("Try mounting The Dongle")
-                 serial_file = str(DISK_ADDRESS) + "\serial.key"
+                 serial_file = str(DISK_ADDRESS) + "\serial.key" #for windows os
+                #  serial_file = str(DISK_ADDRESS) + "/serial.key" #for linux os 
                  # print(serial_file)
                  with open(serial_file,"r") as f:
                      serial_number = f.readline()
                      if serial_number == SERIAL_NUMBER:
-                         toast("Success mounting The Dongle, the Serial number is valid")
+                         toast("Successfully mounting The Dongle, the Serial number is valid")
                          self.ids.bt_save_data.disabled = False
                      else:
                          toast("Failed mounting The Dongle, the Serial number is invalid")
@@ -917,8 +918,7 @@ class ScreenData(BoxLayout):
                 print(data_write)
 
                 now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
-                disk = str(DISK_ADDRESS) + "\data\\" + now
-                #disk = os.getcwd() + now
+                disk = str(DISK_ADDRESS) + "\data\\" + now # for windows os
                 head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, len(data_base.T[2]))
                 foot="0 \n0 \n0 \n0 \n0"
                 with open(disk,"wb") as f:
@@ -927,7 +927,7 @@ class ScreenData(BoxLayout):
             except:
                 try:
                     now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
-                    disk = os.getcwd() + "\data\\" + now
+                    disk = os.getcwd() + "\data\\" + now #for windows os
                     head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, len(data_base.T[2]))
                     foot="0 \n0 \n0 \n0 \n0"
                     with open(disk,"wb") as f:
@@ -950,7 +950,7 @@ class ScreenData(BoxLayout):
             # print(data_save.T)
 
             now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.raw")
-            disk = str(DISK_ADDRESS) + "\data\\" + now
+            disk = str(DISK_ADDRESS) + "\data\\" + now # for windows os
             with open(disk,"wb") as f:
                 np.savetxt(f, data_save.T, fmt="%.3f",delimiter="\t",header="C1  \t P1  \t P2  \t C2  \t Volt [V] \t Curr [mA] \t Res [kOhm] \t StdDev \t IP [R decay]")
             # print("sucessfully auto save data to Dongle")
@@ -959,7 +959,7 @@ class ScreenData(BoxLayout):
             try:
                 now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.raw")
                 cwd = os.getcwd()
-                disk = cwd + "\data\\" + now
+                disk = cwd + "\data\\" + now #for windows os
                 with open(disk,"wb") as f:
                     np.savetxt(f, data_save.T, fmt="%.3f",delimiter="\t",header="C1  \t P1  \t P2  \t C2  \t Volt [V] \t Curr [mA] \t Res [kOhm] \t StdDev \t IP [R decay]")
                 # print("sucessfully auto save data to Default Directory")
@@ -1052,7 +1052,8 @@ class ScreenGraph(BoxLayout):
         if not DISK_ADDRESS.exists() and flag_dongle:
             try:
                 print("try mounting")
-                serial_file = str(DISK_ADDRESS) + "\serial.key"
+                serial_file = str(DISK_ADDRESS) + "\serial.key" #for windows os
+                #  serial_file = str(DISK_ADDRESS) + "/serial.key" #for linux os 
                 # print(serial_file)
                 with open(serial_file,"r") as f:
                     serial_number = f.readline()
@@ -1171,14 +1172,14 @@ class ScreenGraph(BoxLayout):
     def autosave_graph(self):
         try:
             now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-            disk = str(DISK_ADDRESS) + "\data\\" + now
+            disk = str(DISK_ADDRESS) + "\data\\" + now #for windows os
             self.fig.savefig(disk)
             # print("sucessfully auto save graph to Dongle")
             toast("Sucessfully auto save graph to The Dongle")
         except:
             try:
                 now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-                disk = os.getcwd() + "\data\\" + now
+                disk = os.getcwd() + "\data\\" + now #for windows os
                 self.fig.savefig(disk)
                 # print("sucessfully auto save graph to Default Directory")
                 toast("Sucessfully auto save graph to The Default Directory")
@@ -1210,7 +1211,7 @@ class ResistivityMeterApp(MDApp):
     def build(self):
         self.theme_cls.colors = colors
         self.theme_cls.primary_palette = "Blue"
-        self.icon = "asset/logo_labtek_p.ico"
+        self.icon = "asset\logo_labtek_p.ico" #for windows os
         Window.fullscreen = 'auto'
         Window.borderless = True
         # Window.size = 1024, 600
