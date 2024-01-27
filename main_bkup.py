@@ -1,3 +1,8 @@
+import sys
+import os
+import numpy as np
+np.set_printoptions(threshold=sys.maxsize)
+import kivy
 from kivymd.app import MDApp
 from kivymd.toast import toast
 from kivymd.uix.datatables import MDDataTable
@@ -8,19 +13,20 @@ from kivy.clock import Clock
 from kivy.config import Config
 from kivy.metrics import dp
 from kivy.garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
-from kivy.properties import ObjectProperty
-from datetime import datetime
-from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-import numpy as np
-import os
-import minimalmodbus
+from matplotlib.figure import Figure
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+from matplotlib.ticker import AutoMinorLocator
+from datetime import datetime
+from pathlib import Path
+from kivy.properties import ObjectProperty
 import time
+import minimalmodbus
 import serial
 from serial.tools import list_ports
 
-plt.style.use('bmh')
+plt.style.use("bmh")
 
 colors = {
     "Red": {
@@ -72,7 +78,7 @@ P_GAIN = 1.0
 
 USERNAME = "labtek"
 # DISK_ADDRESS = Path("/media/labtek/RESDONGLE/")
-DISK_ADDRESS = Path("E:\\") #windows version
+DISK_ADDRESS = Path("D:\\") #windows version
 #DISK_ADDRESS = Path("/media/" + USERNAME + "/RESDONGLE/")
 SERIAL_NUMBER = "2301212112233412"
 
@@ -187,9 +193,9 @@ class ScreenSetting(BoxLayout):
     def __init__(self, **kwargs):
         super(ScreenSetting, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check_event, 1)
+        Clock.schedule_interval(self.regular_check, 1)
 
-    def regular_check_event(self, dt):
+    def regular_check(self, dt):
         global flag_run
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
@@ -506,7 +512,7 @@ class ScreenData(BoxLayout):
 
         super(ScreenData, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check_event, 1)
+        Clock.schedule_interval(self.regular_check, 1)
 
     def stop_measure(self):
         global flag_measure
@@ -518,8 +524,8 @@ class ScreenData(BoxLayout):
 
         self.ids.bt_measure.text = "RUN MEASUREMENT"
         self.ids.bt_measure.md_bg_color = "#196BA5"
-        Clock.unschedule(self.measurement_check_event)
-        Clock.unschedule(self.inject_current_event)
+        Clock.unschedule(self.measurement_check)
+        Clock.unschedule(self.inject_current)
         inject_state = 0
         flag_measure = False
         step = 0
@@ -535,14 +541,13 @@ class ScreenData(BoxLayout):
             self.autosave_data()
             flag_autosave_data = False
 
-    def regular_check_event(self, dt):
+    def regular_check(self, dt):
         global flag_run
         global flag_measure
         global flag_dongle
         global count_mounting
         global dt_time
         global dt_cycle
-        global dt_mode
         global inject_state
         global flag_autosave_data
         global step
@@ -557,30 +562,30 @@ class ScreenData(BoxLayout):
             flag_autosave_data = True
             measure_interval = ((4 * dt_cycle * dt_time) / 1000)
             inject_interval = ((dt_time) / 10000)
-            print("measure interval:", measure_interval, " inject interval:", inject_interval)
+            # print("measure interval:", measure_interval, " inject interval:", inject_interval)
 
             if("(VES) VERTICAL ELECTRICAL SOUNDING" in dt_mode):
                 if(flag_measure == False):
-                    Clock.schedule_interval(self.measurement_check_event, measure_interval)
-                    Clock.schedule_interval(self.inject_current_event, inject_interval)
+                    Clock.schedule_interval(self.measurement_check, measure_interval)
+                    Clock.schedule_interval(self.inject_current, inject_interval)
                 flag_measure = True
         
             elif("(SP) SELF POTENTIAL" in dt_mode):
                 if(flag_measure == False):
-                    Clock.schedule_interval(self.measurement_check_event, measure_interval)
-                    Clock.schedule_interval(self.measurement_sampling_event, inject_interval)
+                    Clock.schedule_interval(self.measurement_check, measure_interval)
+                    Clock.schedule_interval(self.measurement_sampling, inject_interval)
                 flag_measure = True
                 
             elif("(R) RESISTIVITY" in dt_mode):
                 if(flag_measure == False):
-                    Clock.schedule_interval(self.measurement_check_event, measure_interval)
-                    Clock.schedule_interval(self.inject_current_event, inject_interval)
+                    Clock.schedule_interval(self.measurement_check, measure_interval)
+                    Clock.schedule_interval(self.inject_current, inject_interval)
                 flag_measure = True
                 
             elif("(R+IP) INDUCED POLARIZATION" in dt_mode):
                 if(flag_measure == False):
-                    Clock.schedule_interval(self.measurement_check_event, measure_interval)
-                    Clock.schedule_interval(self.inject_current_event, inject_interval)
+                    Clock.schedule_interval(self.measurement_check, measure_interval)
+                    Clock.schedule_interval(self.inject_current, inject_interval)
                 flag_measure = True                        
             else:
                 pass
@@ -588,7 +593,7 @@ class ScreenData(BoxLayout):
         else:
             self.ids.bt_measure.text = "RUN MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#196BA5"
-            self.stop_measure()
+            # self.stop_measure()
             # pass
            
         if not DISK_ADDRESS.exists() and flag_dongle:
@@ -611,7 +616,7 @@ class ScreenData(BoxLayout):
                  if(count_mounting > 10):
                      flag_dongle = False 
 
-    def measurement_check_event(self, dt):
+    def measurement_check(self, dt):
         global flag_run
         global dt_time
         global dt_cycle
@@ -684,19 +689,19 @@ class ScreenData(BoxLayout):
             self.stop_measure()
 
 
-    def inject_current_event(self, dt):
+    def inject_current(self, dt):
         global inject_state
         global step
         global dt_cycle
         global serial_obj
 
         if(inject_state >= int(4 * dt_cycle)):
-            Clock.unschedule(self.measurement_sampling_event)
+            Clock.unschedule(self.measurement_sampling)
             inject_state = 0
             step += 1
             
         if(inject_state == 0 | inject_state == 4 | inject_state == 8 | inject_state == 12 | inject_state == 16 | inject_state == 20 | inject_state == 24 | inject_state == 28 | inject_state == 32 | inject_state == 36):
-            Clock.unschedule(self.measurement_sampling_event)
+            Clock.unschedule(self.measurement_sampling)
             
             if(not DEBUG):
                 # change to communication to exec relay
@@ -707,7 +712,7 @@ class ScreenData(BoxLayout):
                 self.switching_commands()
             
         elif(inject_state == 1 | inject_state == 5 | inject_state == 9 | inject_state == 13 | inject_state == 17 | inject_state == 21 | inject_state == 25 | inject_state == 29 | inject_state == 33 | inject_state == 37):
-            Clock.schedule_interval(self.measurement_sampling_event, (dt_time) / 10000)
+            Clock.schedule_interval(self.measurement_sampling, (dt_time) / 10000)
 
             if(not DEBUG):
                 # change to communication to exec relay
@@ -718,7 +723,7 @@ class ScreenData(BoxLayout):
                 print("inject positive current")
             
         elif(inject_state == 2 | inject_state == 6 | inject_state == 10 | inject_state == 14 | inject_state == 18 | inject_state == 22 | inject_state == 26 | inject_state == 30 | inject_state == 34 | inject_state == 38):
-            Clock.unschedule(self.measurement_sampling_event)
+            Clock.unschedule(self.measurement_sampling)
 
             if(not DEBUG):
                 # change to communication to exec relay
@@ -728,7 +733,7 @@ class ScreenData(BoxLayout):
                 print("not injecting current")
             
         elif(inject_state == 3 | inject_state == 7 | inject_state == 11 | inject_state == 15 | inject_state == 19 | inject_state == 23 | inject_state == 27 | inject_state == 31 | inject_state == 35 | inject_state == 39):
-            Clock.schedule_interval(self.measurement_sampling_event, (dt_time) / 10000)
+            Clock.schedule_interval(self.measurement_sampling, (dt_time) / 10000)
 
             if(not DEBUG):
                 # change to communication to exec relay
@@ -740,7 +745,7 @@ class ScreenData(BoxLayout):
         # print("step:", step, ", inject:",inject_state)
         inject_state += 1
         
-    def measurement_sampling_event(self, dt):
+    def measurement_sampling(self, dt):
         global dt_current
         global dt_voltage
         global serial_obj
@@ -1046,9 +1051,9 @@ class ScreenGraph(BoxLayout):
     def __init__(self, **kwargs):
         super(ScreenGraph, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check_event, 1)
+        Clock.schedule_interval(self.regular_check, 1)
 
-    def regular_check_event(self, dt):
+    def regular_check(self, dt):
         global flag_run
         global flag_dongle
         global count_mounting
