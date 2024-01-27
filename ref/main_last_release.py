@@ -1,3 +1,8 @@
+import sys
+import os
+import numpy as np
+np.set_printoptions(threshold=sys.maxsize)
+import kivy
 from kivymd.app import MDApp
 from kivymd.toast import toast
 from kivymd.uix.datatables import MDDataTable
@@ -8,15 +13,16 @@ from kivy.clock import Clock
 from kivy.config import Config
 from kivy.metrics import dp
 from kivy.garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
-from kivy.properties import ObjectProperty
-from datetime import datetime
-from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-import numpy as np
-import os
-import minimalmodbus
+from matplotlib.figure import Figure
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+from matplotlib.ticker import AutoMinorLocator
+from datetime import datetime
+from pathlib import Path
+from kivy.properties import ObjectProperty
 import time
+import minimalmodbus
 import serial
 from serial.tools import list_ports
 
@@ -28,11 +34,13 @@ colors = {
         "500": "#EE2222",
         "700": "#EE2222",
     },
+
     "Blue": {
         "200": "#196BA5",
         "500": "#196BA5",
         "700": "#196BA5",
     },
+
     "Light": {
         "StatusBar": "E0E0E0",
         "AppBar": "#202020",
@@ -40,6 +48,7 @@ colors = {
         "CardsDialogs": "#FFFFFF",
         "FlatButtonDown": "#CCCCCC",
     },
+
     "Dark": {
         "StatusBar": "101010",
         "AppBar": "#E0E0E0",
@@ -49,8 +58,8 @@ colors = {
     },
 }
 
-DEBUG = True
-
+DEBUG = False
+    
 STEPS = 51
 # MAX_POINT_WENNER = 500
 MAX_POINT = 10000
@@ -61,10 +70,7 @@ PIN_POLARITY = 24 #18
 
 C_OFFSET = 2.5412
 C_GAIN = 5.0 * 1000.0 #channge from A to mA with gain
-C_OFFSET = 2.5412
-C_GAIN = 5.0 * 1000.0 #channge from A to mA with gain
 
-P_OFFSET = 0.001
 P_OFFSET = 0.001
 P_GAIN = 1.0
 # SHUNT_OHMS = 0.1
@@ -74,8 +80,7 @@ P_GAIN = 1.0
 # PIN_REV = 18
 
 USERNAME = "labtek"
-# DISK_ADDRESS = Path("/media/labtek/RESDONGLE/")
-DISK_ADDRESS = Path("E:\\") #windows version
+DISK_ADDRESS = Path("/media/labtek/RESDONGLE/")
 #DISK_ADDRESS = Path("/media/" + USERNAME + "/RESDONGLE/")
 SERIAL_NUMBER = "2301212112233412"
 
@@ -85,30 +90,24 @@ PARITY = serial.PARITY_NONE
 STOPBIT = 2
 TIMEOUT = 0.05
 
-
 if(not DEBUG):
-    serial_obj = serial.Serial("COM3")  # COM to Arduino Nano, checked manually
-    serial_obj.baudrate = BAUDRATE
-    serial_obj.parity = PARITY
-    serial_obj.bytesize = BYTESIZE
-    time.sleep(3)
     # import ADC and I2C library 
-#     import board
-#     import busio
-#     import adafruit_ads1x15.ads1115 as ADS
-#     from adafruit_ads1x15.analog_in import AnalogIn
-#     import RPi.GPIO as GPIO    
-#     # GPIO control and sensor acquisiton
-#     import RPi.GPIO as GPIO
-#     i2c = busio.I2C(board.SCL, board.SDA)
-#     ads = ADS.ADS1115(i2c)
-# #     from ina219c import INA219 as read_c
-# #     from ina219p import INA219 as read_p
+    import board
+    import busio
+    import adafruit_ads1x15.ads1115 as ADS
+    from adafruit_ads1x15.analog_in import AnalogIn
+    import RPi.GPIO as GPIO    
+    # GPIO control and sensor acquisiton
+    import RPi.GPIO as GPIO
+    i2c = busio.I2C(board.SCL, board.SDA)
+    ads = ADS.ADS1115(i2c)
+#     from ina219c import INA219 as read_c
+#     from ina219p import INA219 as read_p
 
-#     GPIO.cleanup
-#     GPIO.setmode(GPIO.BCM)
-#     GPIO.setup(PIN_ENABLE, GPIO.OUT)
-#     GPIO.setup(PIN_POLARITY, GPIO.OUT)
+    GPIO.cleanup
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(PIN_ENABLE, GPIO.OUT)
+    GPIO.setup(PIN_POLARITY, GPIO.OUT)
 
 # x_datum = np.zeros(MAX_POINT)
 # y_datum = np.zeros(MAX_POINT)
@@ -167,23 +166,22 @@ class ScreenSplash(BoxLayout):
             os.system('cmd /c "sudo rm -r /labtek"')
         except:
             pass
-        Clock.schedule_interval(self.update_progress_bar, 0.01)
+        Clock.schedule_interval(self.update_progress_bar, .01)
 
     def update_progress_bar(self, *args):
         if (self.ids.progress_bar.value + 1) < 100:
-            raw_value = self.ids.progress_bar_label.text.split("[")[-1]
+            raw_value = self.ids.progress_bar_label.text.split('[')[-1]
             value = raw_value[:-2]
             value = eval(value.strip())
             new_value = value + 1
             self.ids.progress_bar.value = new_value
-            self.ids.progress_bar_label.text = "Loading.. [{:} %]".format(new_value)
+            self.ids.progress_bar_label.text = 'Loading.. [{:} %]'.format(new_value)
         else:
             self.ids.progress_bar.value = 100
-            self.ids.progress_bar_label.text = "Loading.. [{:} %]".format(100)
+            self.ids.progress_bar_label.text = 'Loading.. [{:} %]'.format(100)
             time.sleep(0.5)
-            self.screen_manager.current = "screen_setting"
+            self.screen_manager.current = 'screen_setting'
             return False
-
 
 class ScreenSetting(BoxLayout):
     screen_manager = ObjectProperty(None)
@@ -191,10 +189,9 @@ class ScreenSetting(BoxLayout):
     def __init__(self, **kwargs):
         super(ScreenSetting, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check_event, 1)
+        Clock.schedule_interval(self.regular_check, 1)
 
-    def regular_check_event(self, dt):
-        # print("this is regular check event at setting screen")
+    def regular_check(self, dt):
         global flag_run
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
@@ -225,25 +222,24 @@ class ScreenSetting(BoxLayout):
             ports = list_ports.comports(include_links=False)
             for port in ports :
 #                com_port = port.device[0]
-                
-                # change port setting to "COMXX" for windows
-                com_port = "COM4"
+
+                com_port = "/dev/ttyUSB0"
                 toast("switching box is connected to " + com_port)
                 print("switching box is connected to " + com_port)
 
-            rtu1 = minimalmodbus.Instrument(com_port, 1, mode=minimalmodbus.MODE_RTU)
-            rtu2 = minimalmodbus.Instrument(com_port, 2, mode=minimalmodbus.MODE_RTU)
-            rtu3 = minimalmodbus.Instrument(com_port, 3, mode=minimalmodbus.MODE_RTU)
-            rtu4 = minimalmodbus.Instrument(com_port, 4, mode=minimalmodbus.MODE_RTU)
-            rtu5 = minimalmodbus.Instrument(com_port, 5, mode=minimalmodbus.MODE_RTU)
-            rtu6 = minimalmodbus.Instrument(com_port, 6, mode=minimalmodbus.MODE_RTU)
+            rtu1 = minimalmodbus.Instrument(com_port, 1 ,mode=minimalmodbus.MODE_RTU)
+            rtu2 = minimalmodbus.Instrument(com_port, 2 ,mode=minimalmodbus.MODE_RTU)
+            rtu3 = minimalmodbus.Instrument(com_port, 3 ,mode=minimalmodbus.MODE_RTU)
+            rtu4 = minimalmodbus.Instrument(com_port, 4 ,mode=minimalmodbus.MODE_RTU)
+            rtu5 = minimalmodbus.Instrument(com_port, 5 ,mode=minimalmodbus.MODE_RTU)
+            rtu6 = minimalmodbus.Instrument(com_port, 6 ,mode=minimalmodbus.MODE_RTU)
 
-            rtu1.write_bits(80, data_rtu1.tolist())
-            rtu2.write_bits(80, data_rtu2.tolist())
-            rtu3.write_bits(80, data_rtu3.tolist())
-            rtu4.write_bits(80, data_rtu4.tolist())
-            rtu5.write_bits(80, data_rtu5.tolist())
-            rtu6.write_bits(80, data_rtu6.tolist())
+            rtu1.write_bits(80, data_rtu1.tolist()) 
+            rtu2.write_bits(80, data_rtu2.tolist()) 
+            rtu3.write_bits(80, data_rtu3.tolist()) 
+            rtu4.write_bits(80, data_rtu4.tolist()) 
+            rtu5.write_bits(80, data_rtu5.tolist()) 
+            rtu6.write_bits(80, data_rtu6.tolist()) 
 
         except:
             toast("no switching box connected")
@@ -283,12 +279,9 @@ class ScreenSetting(BoxLayout):
                     x_electrode[1, num_step] = num_trial + x_electrode[0, num_step]
                     x_electrode[2, num_step] = num_trial + x_electrode[1, num_step]
                     x_electrode[3, num_step] = num_trial + x_electrode[2, num_step]
-                    x_datum[num_step] = (
-                        x_electrode[1, num_step]
-                        + (x_electrode[2, num_step] - x_electrode[1, num_step]) / 2
-                    ) * dt_distance
+                    x_datum[num_step] = (x_electrode[1, num_step] + (x_electrode[2, num_step] - x_electrode[1, num_step])/2) * dt_distance
                     y_datum[num_step] = (multiplier + 1) * dt_distance
-
+                    
                     num_step += 1
 
                 num_trial += 1
@@ -492,15 +485,14 @@ class ScreenSetting(BoxLayout):
         self.screen_manager.current = 'screen_graph'
 
     def exec_shutdown(self):
+        # os.system("shutdown /s /t 1") #for windows os
         global flag_run
 
         if(not flag_run):        
             toast("shutting down system")
-            os.system("shutdown /s /t 1") #for windows os
-            # os.system("shutdown -h now")
+            os.system("shutdown -h now")
         else:
             toast("cannot shutting down while measuring")
-
 
 class ScreenData(BoxLayout):
     screen_manager = ObjectProperty(None)
@@ -508,10 +500,10 @@ class ScreenData(BoxLayout):
     def __init__(self, **kwargs):
         global dt_time
         global dt_cycle
-
+        
         super(ScreenData, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check_event, 1)
+        Clock.schedule_interval(self.regular_check, 2.5)
 
     def stop_measure(self):
         global flag_measure
@@ -519,84 +511,73 @@ class ScreenData(BoxLayout):
         global flag_autosave_data
         global step
         global max_step
-        global serial_obj
 
         self.ids.bt_measure.text = "RUN MEASUREMENT"
         self.ids.bt_measure.md_bg_color = "#196BA5"
-        Clock.unschedule(self.measurement_check_event)
-        Clock.unschedule(self.inject_current_event)
+        Clock.unschedule(self.measurement_check)
+        Clock.unschedule(self.inject_current)
         inject_state = 0
         flag_measure = False
         step = 0
         max_step = 0
         self.reset_switching()
         if(not DEBUG):
-            # change to communication to exec relay
-            # GPIO.output(PIN_ENABLE, GPIO.HIGH)
-            # GPIO.output(PIN_POLARITY, GPIO.HIGH)
-            serial_obj.write(b"C")
-            time.sleep(1)
-        if flag_autosave_data:
+            GPIO.output(PIN_ENABLE, GPIO.HIGH)
+            GPIO.output(PIN_POLARITY, GPIO.HIGH)
+        if(flag_autosave_data):
             self.autosave_data()
             flag_autosave_data = False
 
-    def regular_check_event(self, dt):
-        # print("this is regular check event at data screen")
+    def regular_check(self, dt):
         global flag_run
         global flag_measure
         global flag_dongle
         global count_mounting
         global dt_time
         global dt_cycle
-        global dt_mode
         global inject_state
         global flag_autosave_data
         global step
         global max_step
-        global serial_obj
-        global flag_run
 
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#A50000"
 
-
             flag_autosave_data = True
             measure_interval = ((4 * dt_cycle * dt_time) / 1000)
-            inject_interval = ((dt_time) / 10000)
-            print("measure interval:", measure_interval, " inject interval:", inject_interval)
+            inject_interval = ((dt_time) / 1000)
+            # print("measure interval:", measure_interval, " inject interval:", inject_interval)
 
             if("(VES) VERTICAL ELECTRICAL SOUNDING" in dt_mode):
                 if(flag_measure == False):
-                    Clock.schedule_interval(self.measurement_check_event, measure_interval)
-                    Clock.schedule_interval(self.inject_current_event, inject_interval)
+                    Clock.schedule_interval(self.measurement_check, measure_interval)
+                    Clock.schedule_interval(self.inject_current, inject_interval)
                 flag_measure = True
         
             elif("(SP) SELF POTENTIAL" in dt_mode):
                 if(flag_measure == False):
-                    Clock.schedule_interval(self.measurement_check_event, measure_interval)
-                    Clock.schedule_interval(self.measurement_sampling_event, inject_interval)
+                    Clock.schedule_interval(self.measurement_check, measure_interval)
+                    Clock.schedule_interval(self.measurement_sampling, inject_interval)
                 flag_measure = True
                 
             elif("(R) RESISTIVITY" in dt_mode):
                 if(flag_measure == False):
-                    Clock.schedule_interval(self.measurement_check_event, measure_interval)
-                    Clock.schedule_interval(self.inject_current_event, inject_interval)
+                    Clock.schedule_interval(self.measurement_check, measure_interval)
+                    Clock.schedule_interval(self.inject_current, inject_interval)
                 flag_measure = True
                 
             elif("(R+IP) INDUCED POLARIZATION" in dt_mode):
                 if(flag_measure == False):
-                    Clock.schedule_interval(self.measurement_check_event, measure_interval)
-                    Clock.schedule_interval(self.inject_current_event, inject_interval)
+                    Clock.schedule_interval(self.measurement_check, measure_interval)
+                    Clock.schedule_interval(self.inject_current, inject_interval)
                 flag_measure = True                        
             else:
                 pass
 
         else:
-            self.ids.bt_measure.text = "RUN MEASUREMENT"
-            self.ids.bt_measure.md_bg_color = "#196BA5"
-            self.stop_measure()
-            # pass
+            # self.stop_measure()
+            pass
            
         if not DISK_ADDRESS.exists() and flag_dongle:
              try:
@@ -618,19 +599,15 @@ class ScreenData(BoxLayout):
                  if(count_mounting > 10):
                      flag_dongle = False 
 
-    def measurement_check_event(self, dt):
-        print("this is measurement check event at data screen")
+    def measurement_check(self, dt):
         global flag_run
         global dt_time
-        global dt_cycle
         global data_base
-        global data_electrode
         global data_electrode
         global dt_current
         global dt_voltage
         global x_electrode
         global step
-        global serial_obj
 
         if("WENNER (ALPHA)" in dt_config):
             k = 2 * np.pi * dt_distance * dt_constant
@@ -649,9 +626,7 @@ class ScreenData(BoxLayout):
         current = np.max(np.fabs(dt_current))
         if(current > 0.0):
             resistivity = k * voltage / current
-            resistivity = k * voltage / current
         else:
-            resistivity = 0.0
             resistivity = 0.0
             
         std_resistivity = np.std(data_base[2, :])
@@ -660,18 +635,6 @@ class ScreenData(BoxLayout):
         data_acquisition = np.array([voltage, current, resistivity, std_resistivity, ip_decay])
         data_acquisition.resize([5, 1])
         data_base = np.concatenate([data_base, data_acquisition], axis=1)
-
-        try:
-            data_c1 = arr_electrode[0, step] + 1
-            data_p1 = arr_electrode[1, step] + 1
-            data_p2 = arr_electrode[2, step] + 1
-            data_c2 = arr_electrode[3, step] + 1
-            electrode_pos = np.array([data_c1, data_p1, data_p2, data_c2])
-        except:
-            electrode_pos = np.array([1, 2, 3, 4])
-
-        electrode_pos.resize([4, 1])
-        data_electrode = np.concatenate([data_electrode, electrode_pos], axis=1)
 
         try:
             data_c1 = arr_electrode[0, step] + 1
@@ -697,126 +660,80 @@ class ScreenData(BoxLayout):
         self.ids.average_current.text = f"{avg_current:.3f}"
         self.ids.average_resistivity.text = f"{avg_resistivity:.3f}"
 
-        avg_voltage = np.average(data_base[0, :])
-        avg_current = np.average(data_base[1, :])
-        avg_resistivity = np.average(data_base[2, :])
-
-        self.ids.average_voltage.text = f"{avg_voltage:.3f}"
-        self.ids.average_current.text = f"{avg_current:.3f}"
-        self.ids.average_resistivity.text = f"{avg_resistivity:.3f}"
-
         self.data_tables.row_data=[(f"{i + 1}", f"{data_base[0,i]:.3f}", f"{data_base[1,i]:.3f}", f"{data_base[2,i]:.3f}", f"{data_base[3,i]:.3f}", f"{data_base[4,i]:.3f}") for i in range(len(data_base[1]))]
 
-    def inject_current_event(self, dt):
-        print("this is inject current event at data screen")
+        print("shape:", arr_electrode.shape, " step:",step)
+
+        if(arr_electrode.shape == (4, step+1)):
+            print("stop")
+            flag_run = False
+            self.stop_measure()
+
+
+    def inject_current(self, dt):
         global inject_state
         global step
         global dt_cycle
-        global serial_obj
 
         if(inject_state >= int(4 * dt_cycle)):
-            Clock.unschedule(self.measurement_sampling_event)
+            Clock.unschedule(self.measurement_sampling)
             inject_state = 0
-            step += 1
             step += 1
             
         if(inject_state == 0 | inject_state == 4 | inject_state == 8 | inject_state == 12 | inject_state == 16 | inject_state == 20 | inject_state == 24 | inject_state == 28 | inject_state == 32 | inject_state == 36):
-            Clock.unschedule(self.measurement_sampling_event)
-            
+            Clock.unschedule(self.measurement_sampling)
+            self.switching_commands()
             if(not DEBUG):
-                # change to communication to exec relay
-                # GPIO.output(PIN_ENABLE, GPIO.HIGH)
-                # GPIO.output(PIN_POLARITY, GPIO.HIGH)
-                serial_obj.write(b"C")
+                GPIO.output(PIN_ENABLE, GPIO.HIGH)
+                GPIO.output(PIN_POLARITY, GPIO.HIGH)
                 print("not injecting current")
-                self.switching_commands()
             
         elif(inject_state == 1 | inject_state == 5 | inject_state == 9 | inject_state == 13 | inject_state == 17 | inject_state == 21 | inject_state == 25 | inject_state == 29 | inject_state == 33 | inject_state == 37):
-            Clock.schedule_interval(self.measurement_sampling_event, (dt_time) / 10000)
-
+            Clock.schedule_interval(self.measurement_sampling, (dt_time) / 10000)
             if(not DEBUG):
-                # change to communication to exec relay
-                # GPIO.output(PIN_ENABLE, GPIO.LOW)
-                # GPIO.output(PIN_POLARITY, GPIO.HIGH)
-                serial_obj.write(b"D")
-                time.sleep(3)
+                GPIO.output(PIN_ENABLE, GPIO.LOW)
+                GPIO.output(PIN_POLARITY, GPIO.HIGH)
                 print("inject positive current")
             
         elif(inject_state == 2 | inject_state == 6 | inject_state == 10 | inject_state == 14 | inject_state == 18 | inject_state == 22 | inject_state == 26 | inject_state == 30 | inject_state == 34 | inject_state == 38):
-            Clock.unschedule(self.measurement_sampling_event)
-
+            Clock.unschedule(self.measurement_sampling)
             if(not DEBUG):
-                # change to communication to exec relay
-                # GPIO.output(PIN_ENABLE, GPIO.HIGH)
-                # GPIO.output(PIN_POLARITY, GPIO.HIGH)
-                serial_obj.write(b"C")
+                GPIO.output(PIN_ENABLE, GPIO.HIGH)
+                GPIO.output(PIN_POLARITY, GPIO.HIGH)
                 print("not injecting current")
             
         elif(inject_state == 3 | inject_state == 7 | inject_state == 11 | inject_state == 15 | inject_state == 19 | inject_state == 23 | inject_state == 27 | inject_state == 31 | inject_state == 35 | inject_state == 39):
-            Clock.schedule_interval(self.measurement_sampling_event, (dt_time) / 10000)
-
+            Clock.schedule_interval(self.measurement_sampling, (dt_time) / 10000)
             if(not DEBUG):
-                # change to communication to exec relay
-                # GPIO.output(PIN_ENABLE, GPIO.LOW)
-                # GPIO.output(PIN_POLARITY, GPIO.LOW)
-                serial_obj.write(b"E")
+                GPIO.output(PIN_ENABLE, GPIO.LOW)
+                GPIO.output(PIN_POLARITY, GPIO.LOW)
                 print("inject negative current")
             
-        # print("step:", step, ", inject:",inject_state)
+        print("step:", step, ", inject:",inject_state)
         inject_state += 1
         
-    def measurement_sampling_event(self, dt):
-        print("this is measurment sampling event at data screen")
+    def measurement_sampling(self, dt):
         global dt_current
         global dt_voltage
-        global serial_obj
+        global ads
 
         # Data acquisition
         dt_voltage_temp = np.zeros_like(dt_voltage)
         dt_current_temp = np.zeros_like(dt_current)
 
-        if (not DEBUG):
-            serial_obj.write(b"A")
-            if serial_obj.inWaiting() > 0:
-                data = (serial_obj.readline().decode("utf-8").strip())  # read the incoming data and remove newline character
-                vF = float(data)
-                realtime_current = vF
-                print("Realtime Curr:")
-                print(realtime_current)
+        if(not DEBUG):
+            try:
+                chan_c = AnalogIn(ads, ADS.P0)
+                realtime_current = (chan_c.voltage - C_OFFSET) * C_GAIN
                 dt_current_temp[:1] = realtime_current
-                # change to communication to read analog current
-                # chan_c = AnalogIn(ads, ADS.P0)
-                # realtime_current = (chan_c.voltage - C_OFFSET) * C_GAIN
-                # dt_current_temp[:1] = realtime_current
-                # serial_obj.write(b"A")
-                # time.sleep(1)
-                # if serial_obj.inWaiting() > 0:
-                #     data = (serial_obj.readline().decode("utf-8").strip())  # read the incoming data and remove newline character
-                #     vF = float(data)
-                #     realtime_current = vF
-                #     print("Realtime Curr:")
-                #     print(realtime_current)
-                #     dt_current_temp[:1] = realtime_current
-            # except serial.SerialException as exxx:
-            #     toast("error read current")
-            #     print(exxx)
-            #     dt_current_temp[:1] = 0.0
+            except:
+                toast("error read current")
+                dt_current_temp[:1] = 0.0
 
             try:
-                # change to communication to read analog potential voltage
-                # chan_p = AnalogIn(ads, ADS.P1)
-                # realtime_voltage = (chan_p.voltage - P_OFFSET) * P_GAIN
-                # dt_voltage_temp[:1] = realtime_voltage
-                serial_obj.write(b"B")
-                time.sleep(1)
-                if serial_obj.inWaiting() > 0:
-                    data1 = (
-                        serial_obj.readline().decode("utf-8").strip()
-                    )  # read the incoming data and remove newline character
-                    vF1 = float(data1)
-                    # print(vF)
-                    realtime_voltage = vF1
-                    dt_voltage_temp[:1] = realtime_voltage
+                chan_p = AnalogIn(ads, ADS.P1)
+                realtime_voltage = (chan_p.voltage - P_OFFSET) * P_GAIN
+                dt_voltage_temp[:1] = realtime_voltage                
 
             except:
                 toast("error read voltage")
@@ -824,14 +741,13 @@ class ScreenData(BoxLayout):
 
         dt_voltage_temp[1:] = dt_voltage[:-1]
         dt_voltage = dt_voltage_temp
-
+        
         dt_current_temp[1:] = dt_current[:-1]
-        dt_current = dt_current_temp
+        dt_current = dt_current_temp       
 
     def switching_commands(self):
         global step
         global max_step
-        global serial_obj
 
         try:
             reshaped_data_rtu = data_rtu.T[step,:].reshape(6, 36)
@@ -896,7 +812,6 @@ class ScreenData(BoxLayout):
         global dt_current
         global dt_voltage
         global flag_run
-        global serial_obj
 
         if(not flag_run):        
             toast("resetting data")
@@ -944,7 +859,6 @@ class ScreenData(BoxLayout):
         global dt_distance
         global dt_config
         global data_pos
-        global serial_obj
 
         if(not flag_run):
             try:
@@ -984,7 +898,7 @@ class ScreenData(BoxLayout):
                 print(data_write)
 
                 now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
-                disk = str(DISK_ADDRESS) + "\data\\" + now
+                disk = str(DISK_ADDRESS) + now
                 #disk = os.getcwd() + now
                 head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, len(data_base.T[2]))
                 foot="0 \n0 \n0 \n0 \n0"
@@ -995,7 +909,7 @@ class ScreenData(BoxLayout):
             except:
                 try:
                     now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
-                    disk = os.getcwd() + "\data\\" + now
+                    disk = os.getcwd() + now
                     head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, len(data_base.T[2]))
                     foot="0 \n0 \n0 \n0 \n0"
                     with open(disk,"wb") as f:
@@ -1013,12 +927,12 @@ class ScreenData(BoxLayout):
         global data_base
         global data_electrode
 
-        try:
-            data_save = np.vstack((data_electrode, data_base))
-            print(data_save.T)
+        data_save = np.vstack((data_electrode, data_base))
+        print(data_save.T)
 
+        try:
             now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.raw")
-            disk = str(DISK_ADDRESS) + "\data\\" + now
+            disk = str(DISK_ADDRESS) + now
             with open(disk,"wb") as f:
                 np.savetxt(f, data_save.T, fmt="%.3f",delimiter="\t",header="C1  \t P1  \t P2  \t C2  \t Volt [V] \t Curr [mA] \t Res [kOhm] \t StdDev \t IP [R decay]")
             print("sucessfully auto save data to Dongle")
@@ -1027,7 +941,7 @@ class ScreenData(BoxLayout):
             try:
                 now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.raw")
                 cwd = os.getcwd()
-                disk = cwd + "\data\\" + now
+                disk = cwd + now
                 with open(disk,"wb") as f:
                     np.savetxt(f, data_save.T, fmt="%.3f",delimiter="\t",header="C1  \t P1  \t P2  \t C2  \t Volt [V] \t Curr [mA] \t Res [kOhm] \t StdDev \t IP [R decay]")
                 print("sucessfully auto save data to Default Directory")
@@ -1038,7 +952,6 @@ class ScreenData(BoxLayout):
 
     def measure(self):
         global flag_run
-        global serial_obj
         if(flag_run):
             flag_run = False
         else:
@@ -1054,27 +967,25 @@ class ScreenData(BoxLayout):
         self.screen_manager.current = 'screen_graph'
 
     def exec_shutdown(self):
+        # os.system("shutdown /s /t 1") #for windows os
         global flag_run
 
         if(not flag_run):        
             toast("shutting down system")
-            os.system("shutdown /s /t 1") #for windows os
-            # os.system("shutdown -h now")
+            os.system("shutdown -h now")
         else:
             toast("cannot shutting down while measuring")
 
 class ScreenGraph(BoxLayout):
     screen_manager = ObjectProperty(None)
     global flag_run
-    global serial_obj
 
     def __init__(self, **kwargs):
         super(ScreenGraph, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check_event, 1)
+        Clock.schedule_interval(self.regular_check, 1)
 
-    def regular_check_event(self, dt):
-        # print("this is regular check event at graph screen")
+    def regular_check(self, dt):
         global flag_run
         global flag_dongle
         global count_mounting
@@ -1082,7 +993,6 @@ class ScreenGraph(BoxLayout):
         global data_base
         global flag_autosave_graph
         global graph_state
-        global serial_obj
 
         if(graph_state > 10):
             graph_state = 0
@@ -1149,7 +1059,7 @@ class ScreenGraph(BoxLayout):
             self.ids.layout_graph.clear_widgets()
             self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))
 
-            # print("successfully show graphic")
+            print("successfully show graphic")
         
         except:
             print("error show graphic")
@@ -1213,14 +1123,14 @@ class ScreenGraph(BoxLayout):
             toast("saving graph")
             try:
                 now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-                disk = str(DISK_ADDRESS) + "\data\\" + now
+                disk = str(DISK_ADDRESS) + now
                 self.fig.savefig(disk)
                 print("sucessfully save graph to Dongle")
                 toast("sucessfully save graph to Dongle")
             except:
                 try:
                     now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-                    disk = os.getcwd() + "\data\\" + now
+                    disk = os.getcwd() + now
                     self.fig.savefig(disk)
                     print("sucessfully save graph to Default Directory")
                     toast("sucessfully save graph to Default Directory")
@@ -1233,13 +1143,13 @@ class ScreenGraph(BoxLayout):
     def autosave_graph(self):
         try:
             now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-            disk = str(DISK_ADDRESS) + "\data\\" + now
+            disk = str(DISK_ADDRESS) + now
             self.fig.savefig(disk)
             print("sucessfully auto save graph to Dongle")
         except:
             try:
                 now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-                disk = os.getcwd() + "\data\\" + now
+                disk = os.getcwd() + now
                 self.fig.savefig(disk)
                 print("sucessfully auto save graph to Default Directory")
             except:
@@ -1255,30 +1165,29 @@ class ScreenGraph(BoxLayout):
         self.screen_manager.current = 'screen_graph'
 
     def exec_shutdown(self):
+        # os.system("shutdown /s /t 1") #for windows os
         global flag_run
 
         if(not flag_run):        
             toast("shutting down system")
-            os.system("shutdown /s /t 1") #for windows os
-            # os.system("shutdown -h now")
+            os.system("shutdown -h now")
         else:
             toast("cannot shutting down while measuring")
-
 
 class ResistivityMeterApp(MDApp):
     def build(self):
         self.theme_cls.colors = colors
         self.theme_cls.primary_palette = "Blue"
-        self.icon = "asset/logo_labtek_p.ico"
-        Window.fullscreen = 'auto'
+        self.icon = 'asset/logo_labtek_p.ico'
+        # Window.fullscreen = 'auto'
         Window.borderless = True
-        # Window.size = 1024, 600
+        Window.size = 1024, 600
         Window.allow_screensaver = True
 
-        screen = Builder.load_file("main.kv")
+        screen = Builder.load_file('main.kv')
 
         return screen
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     ResistivityMeterApp().run()
