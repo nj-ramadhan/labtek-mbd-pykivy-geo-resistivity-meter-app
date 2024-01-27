@@ -767,9 +767,9 @@ class ScreenData(BoxLayout):
             
             try:
                 serial_obj.write(b"B")
-                data_milivoltage = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
-                milivolt = float(data_milivoltage)
-                volt = milivoltage / 1000
+                data_millivoltage = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
+                millivolt = float(data_millivoltage)
+                volt = millivolt / 1000
                 realtime_voltage = volt
                 # print("Realtime Volt:", realtime_voltage)
                 dt_voltage_temp[:1] = realtime_voltage
