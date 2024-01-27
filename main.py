@@ -61,7 +61,10 @@ PIN_POLARITY = 24 #18
 
 C_OFFSET = 2.5412
 C_GAIN = 5.0 * 1000.0 #channge from A to mA with gain
+C_OFFSET = 2.5412
+C_GAIN = 5.0 * 1000.0 #channge from A to mA with gain
 
+P_OFFSET = 0.001
 P_OFFSET = 0.001
 P_GAIN = 1.0
 # SHUNT_OHMS = 0.1
@@ -81,6 +84,7 @@ BYTESIZE = 8
 PARITY = serial.PARITY_NONE
 STOPBIT = 2
 TIMEOUT = 0.05
+
 
 if(not DEBUG):
     serial_obj = serial.Serial("COM3")  # COM to Arduino Nano, checked manually
@@ -554,6 +558,7 @@ class ScreenData(BoxLayout):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#A50000"
 
+
             flag_autosave_data = True
             measure_interval = ((4 * dt_cycle * dt_time) / 1000)
             inject_interval = ((dt_time) / 10000)
@@ -617,6 +622,7 @@ class ScreenData(BoxLayout):
         global dt_cycle
         global data_base
         global data_electrode
+        global data_electrode
         global dt_current
         global dt_voltage
         global x_electrode
@@ -640,7 +646,9 @@ class ScreenData(BoxLayout):
         current = np.max(np.fabs(dt_current))
         if(current > 0.0):
             resistivity = k * voltage / current
+            resistivity = k * voltage / current
         else:
+            resistivity = 0.0
             resistivity = 0.0
             
         std_resistivity = np.std(data_base[2, :])
@@ -649,6 +657,18 @@ class ScreenData(BoxLayout):
         data_acquisition = np.array([voltage, current, resistivity, std_resistivity, ip_decay])
         data_acquisition.resize([5, 1])
         data_base = np.concatenate([data_base, data_acquisition], axis=1)
+
+        try:
+            data_c1 = arr_electrode[0, step] + 1
+            data_p1 = arr_electrode[1, step] + 1
+            data_p2 = arr_electrode[2, step] + 1
+            data_c2 = arr_electrode[3, step] + 1
+            electrode_pos = np.array([data_c1, data_p1, data_p2, data_c2])
+        except:
+            electrode_pos = np.array([1, 2, 3, 4])
+
+        electrode_pos.resize([4, 1])
+        data_electrode = np.concatenate([data_electrode, electrode_pos], axis=1)
 
         try:
             data_c1 = arr_electrode[0, step] + 1
@@ -674,17 +694,17 @@ class ScreenData(BoxLayout):
         self.ids.average_current.text = f"{avg_current:.3f}"
         self.ids.average_resistivity.text = f"{avg_resistivity:.3f}"
 
+        avg_voltage = np.average(data_base[0, :])
+        avg_current = np.average(data_base[1, :])
+        avg_resistivity = np.average(data_base[2, :])
+
+        self.ids.average_voltage.text = f"{avg_voltage:.3f}"
+        self.ids.average_current.text = f"{avg_current:.3f}"
+        self.ids.average_resistivity.text = f"{avg_resistivity:.3f}"
+
         self.data_tables.row_data=[(f"{i + 1}", f"{data_base[0,i]:.3f}", f"{data_base[1,i]:.3f}", f"{data_base[2,i]:.3f}", f"{data_base[3,i]:.3f}", f"{data_base[4,i]:.3f}") for i in range(len(data_base[1]))]
 
-        # print("shape:", arr_electrode.shape, " step:",step)
-
-        if(arr_electrode.shape == (4, step+1)):
-            print("stop")
-            flag_run = False
-            self.stop_measure()
-
-
-    def inject_current_event(self, dt):
+    def inject_current(self, dt):
         global inject_state
         global step
         global dt_cycle
@@ -693,6 +713,7 @@ class ScreenData(BoxLayout):
         if(inject_state >= int(4 * dt_cycle)):
             Clock.unschedule(self.measurement_sampling_event)
             inject_state = 0
+            step += 1
             step += 1
             
         if(inject_state == 0 | inject_state == 4 | inject_state == 8 | inject_state == 12 | inject_state == 16 | inject_state == 20 | inject_state == 24 | inject_state == 28 | inject_state == 32 | inject_state == 36):
