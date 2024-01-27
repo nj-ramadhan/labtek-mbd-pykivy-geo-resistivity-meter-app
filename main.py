@@ -49,7 +49,7 @@ colors = {
     },
 }
 
-DEBUG = False
+DEBUG = True
 
 STEPS = 51
 MAX_POINT = 10000
