@@ -71,11 +71,13 @@ USERNAME = "labtek"
 DISK_ADDRESS = Path("D:\\") #windows version
 SERIAL_NUMBER = "2301212112233412"
 
-BAUDRATE = 19200
+# BAUDRATE = 19200
+BAUDRATE = 9600
 BYTESIZE = 8
 PARITY = serial.PARITY_NONE
-STOPBIT = 2
-TIMEOUT = 0.05
+# STOPBIT = 2
+STOPBIT = 1
+TIMEOUT = 0.1
 
 if(not DEBUG):
     serial_obj = serial.Serial("COM3")  # COM to Microcontroller, checked manually
@@ -88,7 +90,7 @@ x_electrode = np.zeros((4, MAX_POINT))
 n_electrode = np.zeros((ELECTRODES_NUM, STEPS))
 c_electrode = np.array(["#196BA5","#FF0000","#FFDD00","#00FF00","#00FFDD"])
 l_electrode = np.array(["Datum","C1","C2","P1","P2"])
-arr_electrode = np.zeros([4, 0])
+arr_electrode = np.zeros([4, 0], dtype=int)
 data_base = np.zeros([5, 0])
 data_electrode = np.zeros([4, 0], dtype=int)
 data_pos = np.zeros([2, 0])
@@ -168,6 +170,7 @@ class ScreenSetting(BoxLayout):
 
         global rtu1, rtu2, rtu3, rtu4, rtu5, rtu6
         global data_rtu1, data_rtu2, data_rtu3, data_rtu4, data_rtu5, data_rtu6
+        global arr_electrode
 
         self.ids.bt_shutdown.md_bg_color = "#A50000"
         self.ids.mode_ves.active = True
@@ -184,31 +187,33 @@ class ScreenSetting(BoxLayout):
         self.ids.layout_illustration.add_widget(FigureCanvasKivyAgg(self.fig))
 
         try:
-            ports = list_ports.comports(include_links=False)
-            for port in ports :
-            #    com_port = port.device[0]
+            serial_obj.write(b"!") # reset switching
+            # ports = list_ports.comports(include_links=False)
+            # for port in ports :
+            # #    com_port = port.device[0]
                 
-                # change port setting to "COMXX" for windows
-                com_port = "COM4"
-                toast("Switching Unit is connected to " + com_port)
-                # print("switching box is connected to " + com_port)
+            #     # change port setting to "COMXX" for windows
+            #     com_port = "COM4"
+            #     toast("Switching Unit is connected to " + com_port)
+            #     # print("switching box is connected to " + com_port)
 
-            rtu1 = minimalmodbus.Instrument(com_port, 1, mode=minimalmodbus.MODE_RTU)
-            rtu2 = minimalmodbus.Instrument(com_port, 2, mode=minimalmodbus.MODE_RTU)
-            rtu3 = minimalmodbus.Instrument(com_port, 3, mode=minimalmodbus.MODE_RTU)
-            rtu4 = minimalmodbus.Instrument(com_port, 4, mode=minimalmodbus.MODE_RTU)
-            rtu5 = minimalmodbus.Instrument(com_port, 5, mode=minimalmodbus.MODE_RTU)
-            rtu6 = minimalmodbus.Instrument(com_port, 6, mode=minimalmodbus.MODE_RTU)
+            # rtu1 = minimalmodbus.Instrument(com_port, 1, mode=minimalmodbus.MODE_RTU)
+            # rtu2 = minimalmodbus.Instrument(com_port, 2, mode=minimalmodbus.MODE_RTU)
+            # rtu3 = minimalmodbus.Instrument(com_port, 3, mode=minimalmodbus.MODE_RTU)
+            # rtu4 = minimalmodbus.Instrument(com_port, 4, mode=minimalmodbus.MODE_RTU)
+            # rtu5 = minimalmodbus.Instrument(com_port, 5, mode=minimalmodbus.MODE_RTU)
+            # rtu6 = minimalmodbus.Instrument(com_port, 6, mode=minimalmodbus.MODE_RTU)
 
-            try:
-                rtu1.write_bits(80, data_rtu1.tolist())
-                rtu2.write_bits(80, data_rtu2.tolist())
-                rtu3.write_bits(80, data_rtu3.tolist())
-                rtu4.write_bits(80, data_rtu4.tolist())
-                rtu5.write_bits(80, data_rtu5.tolist())
-                rtu6.write_bits(80, data_rtu6.tolist())
-            except:
-                toast("Error communication with Switching Unit")
+            # try:
+                
+            #     rtu1.write_bits(80, data_rtu1.tolist())
+            #     rtu2.write_bits(80, data_rtu2.tolist())
+            #     rtu3.write_bits(80, data_rtu3.tolist())
+            #     rtu4.write_bits(80, data_rtu4.tolist())
+            #     rtu5.write_bits(80, data_rtu5.tolist())
+            #     rtu6.write_bits(80, data_rtu6.tolist())
+            # except:
+            #     toast("Error communication with Switching Unit")
 
         except:
             toast("No Switching Unit connected")
@@ -370,12 +375,13 @@ class ScreenSetting(BoxLayout):
             arr_electrode = np.array([data_c1, data_p1, data_p2, data_c2], dtype=int)
             # print(arr_electrode.T)
 
-            data_rtu = np.zeros([216,max_step], dtype=int)
-            for i in range(max_step):
-                data_rtu[arr_electrode[0,i]*4, i] = 1
-                data_rtu[arr_electrode[1,i]*4 + 1, i] = 1
-                data_rtu[arr_electrode[2,i]*4 + 2, i] = 1
-                data_rtu[arr_electrode[3,i]*4 + 3, i] = 1
+            # data_rtu = np.zeros([216,max_step], dtype=int)
+            # data_relay = arr_electrode
+            # for i in range(max_step):
+            #     data_rtu[arr_electrode[0,i]*4, i] = 1
+            #     data_rtu[arr_electrode[1,i]*4 + 1, i] = 1
+            #     data_rtu[arr_electrode[2,i]*4 + 2, i] = 1
+            #     data_rtu[arr_electrode[3,i]*4 + 3, i] = 1
 
         except:
             # print("error simulating")
@@ -600,7 +606,8 @@ class ScreenData(BoxLayout):
         max_step = 0
         self.reset_switching()
         if(not DEBUG):
-            serial_obj.write(b"C")
+            serial_obj.write(b"_")
+            # stop injecting 
         if flag_autosave_data:
             self.autosave_data()
             flag_autosave_data = False
@@ -611,7 +618,7 @@ class ScreenData(BoxLayout):
         global dt_time
         global dt_cycle
         global data_base
-        global data_electrode
+        global arr_electrode
         global data_electrode
         global dt_current
         global dt_voltage
@@ -716,7 +723,7 @@ class ScreenData(BoxLayout):
             Clock.unschedule(self.measurement_sampling_event)
             
             if(not DEBUG):
-                serial_obj.write(b"C")
+                serial_obj.write(b"_") # inject positive current
                 # toast("not injecting current")
                 self.switching_commands()
             
@@ -724,21 +731,21 @@ class ScreenData(BoxLayout):
             Clock.schedule_interval(self.measurement_sampling_event, time_sampling)
 
             if(not DEBUG):
-                serial_obj.write(b"D")
+                serial_obj.write(b"+")
                 # toast("inject positive current")
             
         elif(inject_state == 2 or inject_state == 6 or inject_state == 10 or inject_state == 14 or inject_state == 18 or inject_state == 22 or inject_state == 26 or inject_state == 30 or inject_state == 34 or inject_state == 38):
             Clock.unschedule(self.measurement_sampling_event)
 
             if(not DEBUG):
-                serial_obj.write(b"C")
+                serial_obj.write(b"_")
                 # toast("not injecting current")
             
         elif(inject_state == 3 or inject_state == 7 or inject_state == 11 or inject_state == 15 or inject_state == 19 or inject_state == 23 or inject_state == 27 or inject_state == 31 or inject_state == 35 or inject_state == 39):
             Clock.schedule_interval(self.measurement_sampling_event, time_sampling)
 
             if(not DEBUG):
-                serial_obj.write(b"E")
+                serial_obj.write(b"-")
                 # toast("inject negative current")
 
         inject_state += 1
@@ -755,7 +762,7 @@ class ScreenData(BoxLayout):
 
         if (not DEBUG):
             try:
-                serial_obj.write(b"A")
+                serial_obj.write(b"a")
                 data_current = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
                 curr = float(data_current)
                 realtime_current = curr
@@ -766,7 +773,7 @@ class ScreenData(BoxLayout):
                 dt_current_temp[:1] = 0.0
             
             try:
-                serial_obj.write(b"B")
+                serial_obj.write(b"v")
                 data_millivoltage = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
                 millivolt = float(data_millivoltage)
                 volt = millivolt / 1000
@@ -787,41 +794,46 @@ class ScreenData(BoxLayout):
         global step
         global max_step
         global serial_obj
+        global arr_electrode
 
         try:
-            reshaped_data_rtu = data_rtu.T[step,:].reshape(6, 36)
+            serial_text = str(f"*{arr_electrode[0, step]},{arr_electrode[1, step]},{arr_electrode[2, step]},{arr_electrode[3, step]}")
+            print(serial_text)
+            serial_obj.write(serial_text.encode('utf-8'))
+            # reshaped_data_rtu = data_rtu.T[step,:].reshape(6, 36)
 
-            data_rtu1 = reshaped_data_rtu[0]
-            data_rtu2 = reshaped_data_rtu[1]
-            data_rtu3 = reshaped_data_rtu[2]
-            data_rtu4 = reshaped_data_rtu[3]
-            data_rtu5 = reshaped_data_rtu[4]
-            data_rtu6 = reshaped_data_rtu[5]
+            # data_rtu1 = reshaped_data_rtu[0]
+            # data_rtu2 = reshaped_data_rtu[1]
+            # data_rtu3 = reshaped_data_rtu[2]
+            # data_rtu4 = reshaped_data_rtu[3]
+            # data_rtu5 = reshaped_data_rtu[4]
+            # data_rtu6 = reshaped_data_rtu[5]
 
-            rtu1.write_bits(80, data_rtu1.tolist()) 
-            rtu2.write_bits(80, data_rtu2.tolist()) 
-            rtu3.write_bits(80, data_rtu3.tolist()) 
-            rtu4.write_bits(80, data_rtu4.tolist()) 
-            rtu5.write_bits(80, data_rtu5.tolist()) 
-            rtu6.write_bits(80, data_rtu6.tolist()) 
+            # rtu1.write_bits(80, data_rtu1.tolist()) 
+            # rtu2.write_bits(80, data_rtu2.tolist()) 
+            # rtu3.write_bits(80, data_rtu3.tolist()) 
+            # rtu4.write_bits(80, data_rtu4.tolist()) 
+            # rtu5.write_bits(80, data_rtu5.tolist()) 
+            # rtu6.write_bits(80, data_rtu6.tolist()) 
         except:
             pass
 
     def reset_switching(self):
         try:
-            data_rtu1 = np.zeros(36, dtype=int)
-            data_rtu2 = np.zeros(36, dtype=int)
-            data_rtu3 = np.zeros(36, dtype=int)
-            data_rtu4 = np.zeros(36, dtype=int)
-            data_rtu5 = np.zeros(36, dtype=int)
-            data_rtu6 = np.zeros(36, dtype=int)
+            serial_obj.write(b"!") # reset switching
+            # data_rtu1 = np.zeros(36, dtype=int)
+            # data_rtu2 = np.zeros(36, dtype=int)
+            # data_rtu3 = np.zeros(36, dtype=int)
+            # data_rtu4 = np.zeros(36, dtype=int)
+            # data_rtu5 = np.zeros(36, dtype=int)
+            # data_rtu6 = np.zeros(36, dtype=int)
 
-            rtu1.write_bits(80, data_rtu1.tolist()) 
-            rtu2.write_bits(80, data_rtu2.tolist()) 
-            rtu3.write_bits(80, data_rtu3.tolist()) 
-            rtu4.write_bits(80, data_rtu4.tolist()) 
-            rtu5.write_bits(80, data_rtu5.tolist()) 
-            rtu6.write_bits(80, data_rtu6.tolist()) 
+            # rtu1.write_bits(80, data_rtu1.tolist()) 
+            # rtu2.write_bits(80, data_rtu2.tolist()) 
+            # rtu3.write_bits(80, data_rtu3.tolist()) 
+            # rtu4.write_bits(80, data_rtu4.tolist()) 
+            # rtu5.write_bits(80, data_rtu5.tolist()) 
+            # rtu6.write_bits(80, data_rtu6.tolist()) 
         except:
             pass
 
