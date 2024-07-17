@@ -71,14 +71,14 @@ USERNAME = "labtek"
 DISK_ADDRESS = Path("D:\\") #windows version
 SERIAL_NUMBER = "2301212112233412"
 
-BAUDRATE = 19200
+BAUDRATE = 9600
 BYTESIZE = 8
 PARITY = serial.PARITY_NONE
-STOPBIT = 2
+STOPBIT = 1
 TIMEOUT = 0.05
 
 if(not DEBUG):
-    serial_obj = serial.Serial("COM3")  # COM to Microcontroller, checked manually
+    serial_obj = serial.Serial("COM6")  # COM to Microcontroller, checked manually
     serial_obj.baudrate = BAUDRATE
     serial_obj.parity = PARITY
     serial_obj.bytesize = BYTESIZE
