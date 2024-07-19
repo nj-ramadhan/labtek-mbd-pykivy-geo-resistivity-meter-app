@@ -141,7 +141,7 @@ class ScreenSplash(BoxLayout):
             os.system('cmd /c "sudo rm -r /labtek"')
         except:
             pass
-        Clock.schedule_interval(self.update_progress_bar, 0.01)
+        Clock.schedule_interval(self.update_progress_bar, 0.05)
 
     def update_progress_bar(self, *args):
         if (self.ids.progress_bar.value + 1) < 100:
