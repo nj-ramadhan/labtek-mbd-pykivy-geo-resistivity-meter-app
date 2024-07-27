@@ -9,13 +9,13 @@ arr_electrode = np.array([[1,2,3,4,5,6,7],
                           [11,12,13,14,15,16,17]]                      
                           )
 
-arduino = serial.Serial(port='COM3', baudrate=9600, timeout=.1) 
+arduino = serial.Serial(port='COM8', baudrate=9600, timeout=.1) 
 
 def write_read(x): 
     arduino.write(bytes(x, 'utf-8')) 
     print(bytes(x, 'utf-8'))
     time.sleep(0.1) 
-    data = arduino.readline() 
+    data = arduino.readline().decode("utf-8").strip() 
     return data 
 
 for step in range(5):
