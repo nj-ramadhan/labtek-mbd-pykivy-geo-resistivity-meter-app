@@ -775,6 +775,7 @@ class ScreenData(BoxLayout):
             if(not DEBUG):
                 serial_obj.write(b"_") # inject positive current
                 data_stop_inject = serial_obj.readline().decode("utf-8").strip()
+                
                 print(data_stop_inject)
                 toast(data_stop_inject)
                 while True:  
@@ -803,7 +804,7 @@ class ScreenData(BoxLayout):
                 serial_obj.write(b"+")
                 data_plus_inject = serial_obj.readline().decode("utf-8").strip()
                 print(data_plus_inject)
-                toast(data_plus_inject)
+                # toast(data_plus_inject)
                 while True:
                     if data_plus_inject == "Inject Positif":
                         break
@@ -823,7 +824,7 @@ class ScreenData(BoxLayout):
                 serial_obj.write(b"+")
                 data_plus_inject = serial_obj.readline().decode("utf-8").strip()
                 print(data_plus_inject)
-                # toast(data_plus_inject)
+                toast(data_plus_inject)
                 while True:
                     if data_plus_inject == "Inject Positif":
                         break
