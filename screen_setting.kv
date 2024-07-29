@@ -298,6 +298,11 @@
 								font_size:12
 								color: 0, 0, 0
 
+							Label:
+								text: "volt threshold [mV]"
+								font_size:12
+								color: 0, 0, 0
+
 						BoxLayout:
 							orientation: "horizontal"
 							size_hint_y: 0.7
@@ -340,6 +345,23 @@
 								hint_bg_color: "white"
 								orientation: 'vertical'
 
+							BoxLayout:
+								orientation: "vertical"
+
+								MDFillRoundFlatIconButton:
+									id: bt_threshold_up
+									icon: "arrow-up"
+									text: " "
+									font_size: 16
+									on_press: root.threshold_up()
+
+								MDFillRoundFlatIconButton:
+									id: bt_threshold_down
+									icon: "arrow-down"
+									text: " "
+									font_size: 16
+									on_press: root.threshold_down()
+
 						BoxLayout:
 							orientation: "horizontal"
 							size_hint_y: 0.2
@@ -368,6 +390,12 @@
 								color: 0, 0, 0
 								bold: True
 
+							Label:
+								id: lb_volt_threshold
+								text: "20.0 mV"
+								font_size:16
+								color: 0, 0, 0
+								bold: True
 			# illustration graph layout
 			BoxLayout:
 				id: layout_illustration

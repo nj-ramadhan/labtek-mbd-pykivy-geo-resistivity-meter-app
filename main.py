@@ -60,15 +60,6 @@ ELECTRODES_NUM = 48
 PIN_ENABLE = 23 #16
 PIN_POLARITY = 24 #18
 
-C_OFFSET = 2.5412
-C_GAIN = 5.0 * 1000.0 #channge from A to mA with gain
-C_OFFSET = 2.5412
-C_GAIN = 5.0 * 1000.0 #channge from A to mA with gain
-
-P_OFFSET = 0.001
-P_OFFSET = 0.001
-P_GAIN = 1.0
-
 USERNAME = "labtek"
 DISK_ADDRESS = Path("D:\\") #windows version
 SERIAL_NUMBER = "2301212112233412"
@@ -79,12 +70,9 @@ PARITY = serial.PARITY_NONE
 STOPBIT = 1
 TIMEOUT = 0.5
 
-if(not DEBUG):
-    serial_obj = serial.Serial("COM6")  # COM to Microcontroller, checked manually
-    serial_obj.baudrate = BAUDRATE
-    serial_obj.parity = PARITY
-    serial_obj.bytesize = BYTESIZE
-    time.sleep(2)
+REQUEST_TIME_OUT = 5.0
+DELAY_INITIAL = 7 #in seconds
+UPDATE_INTERVAL = 1 #in seconds
 
 x_electrode = np.zeros((4, MAX_POINT))
 n_electrode = np.zeros((ELECTRODES_NUM, STEPS))
@@ -104,6 +92,7 @@ dt_constant = 1
 real_constant = 1
 dt_time = 500
 dt_cycle = 1
+dt_threshold = 20.0
 
 dt_measure = np.zeros(6)
 dt_current = np.zeros(10)
@@ -141,7 +130,7 @@ class ScreenSplash(BoxLayout):
             os.system('cmd /c "sudo rm -r /labtek"')
         except:
             pass
-        Clock.schedule_interval(self.update_progress_bar, 0.05)
+        Clock.schedule_interval(self.update_progress_bar, 0.035)
 
     def update_progress_bar(self, *args):
         if (self.ids.progress_bar.value + 1) < 100:
@@ -154,7 +143,6 @@ class ScreenSplash(BoxLayout):
         else:
             self.ids.progress_bar.value = 100
             self.ids.progress_bar_label.text = "Loading.. [{:} %]".format(100)
-            time.sleep(0.5)
             self.screen_manager.current = "screen_setting"
             return False
 
@@ -163,14 +151,15 @@ class ScreenSetting(BoxLayout):
 
     def __init__(self, **kwargs):
         super(ScreenSetting, self).__init__(**kwargs)
-        Clock.schedule_once(self.delayed_init, 30)
+        Clock.schedule_once(self.delayed_init, DELAY_INITIAL)
 
     def delayed_init(self, dt):
-        Clock.schedule_interval(self.regular_check_event, 1)
-
         global rtu1, rtu2, rtu3, rtu4, rtu5, rtu6
         global data_rtu1, data_rtu2, data_rtu3, data_rtu4, data_rtu5, data_rtu6
         global arr_electrode
+        global serial_obj
+
+        Clock.schedule_interval(self.regular_check_event, UPDATE_INTERVAL)
 
         self.ids.bt_shutdown.md_bg_color = "#A50000"
         self.ids.mode_ves.active = True
@@ -187,46 +176,64 @@ class ScreenSetting(BoxLayout):
         self.ids.layout_illustration.add_widget(FigureCanvasKivyAgg(self.fig))
 
         try:
+            self.connect_to_mcu()
+            Clock.schedule_interval(self.read_mcu, REQUEST_TIME_OUT)
+            toast("Switching unit is sucessfully connected")
+        except:
+            Clock.schedule_interval(self.auto_reconnect, REQUEST_TIME_OUT)
+            toast("Switching unit is disconnected")
+
+        try:
             serial_obj.write(b"%") # reset switching
             data_reset = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
-            #print(data_current[0])
             while True:
+                print(data_reset)
                 if data_reset == "Semua decoder mati":
                     break
                 else:
                     serial_obj.write(b"%") # reset switching
                     data_reset = serial_obj.readline().decode("utf-8").strip()
-            # ports = list_ports.comports(include_links=False)
-            # for port in ports :
-            # #    com_port = port.device[0]
-                
-            #     # change port setting to "COMXX" for windows
-            #     com_port = "COM4"
-            #     toast("Switching Unit is connected to " + com_port)
-            #     # print("switching box is connected to " + com_port)
-
-            # rtu1 = minimalmodbus.Instrument(com_port, 1, mode=minimalmodbus.MODE_RTU)
-            # rtu2 = minimalmodbus.Instrument(com_port, 2, mode=minimalmodbus.MODE_RTU)
-            # rtu3 = minimalmodbus.Instrument(com_port, 3, mode=minimalmodbus.MODE_RTU)
-            # rtu4 = minimalmodbus.Instrument(com_port, 4, mode=minimalmodbus.MODE_RTU)
-            # rtu5 = minimalmodbus.Instrument(com_port, 5, mode=minimalmodbus.MODE_RTU)
-            # rtu6 = minimalmodbus.Instrument(com_port, 6, mode=minimalmodbus.MODE_RTU)
-
-            # try:
-                
-            #     rtu1.write_bits(80, data_rtu1.tolist())
-            #     rtu2.write_bits(80, data_rtu2.tolist())
-            #     rtu3.write_bits(80, data_rtu3.tolist())
-            #     rtu4.write_bits(80, data_rtu4.tolist())
-            #     rtu5.write_bits(80, data_rtu5.tolist())
-            #     rtu6.write_bits(80, data_rtu6.tolist())
-            # except:
-            #     toast("Error communication with Switching Unit")
 
         except:
             toast("No Switching Unit connected")
             # print("no switching box connected")
 
+    def auto_reconnect(self, dt):
+        try:
+            self.connect_to_mcu()
+            Clock.schedule_interval(self.read_mcu, REQUEST_TIME_OUT)
+            Clock.unschedule(self.auto_reconnect)
+        except:
+            toast("Switching unit is disconnected, try reconnecting..")
+
+    def read_mcu(self, dt):
+        global serial_obj
+        global dt_threshold
+
+        if(not DEBUG):
+            try:
+                print("Reading mcu")
+                serial_obj.write(b" ")
+            except Exception as e:
+                Clock.schedule_interval(self.auto_reconnect, REQUEST_TIME_OUT)
+                error_msg = "Error reading Switching unit :" + str(e)
+                print(error_msg)
+
+    def connect_to_mcu(self):
+        global serial_obj
+
+        if(not DEBUG):
+            try:
+                serial_obj = serial.Serial("COM8")  # COM to Microcontroller, checked manually
+                serial_obj.baudrate = BAUDRATE
+                serial_obj.parity = PARITY
+                serial_obj.bytesize = BYTESIZE
+                toast("Sucessfully connect to Switching unit")
+            except Exception as e:
+                error_msg = "Error connect to Switching unit :" + str(e)
+                print(error_msg)
+                toast("Error connect to Switching unit, try reconnecting")
+    
     def regular_check_event(self, dt):
         # print("this is regular check event at setting screen")
         global flag_run
@@ -237,19 +244,50 @@ class ScreenSetting(BoxLayout):
             self.ids.bt_measure.text = "RUN MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#196BA5"
 
+    def threshold_up(self):
+        global dt_threshold
+        global serial_obj
+
+        if(not DEBUG):
+            serial_obj.write(b">")
+            data_threshold_up = serial_obj.readline().decode("utf-8").strip()
+            while True:
+                print(data_threshold_up)
+                if data_threshold_up[0] == "t":                
+                # if data_threshold_up != "":
+                    serial_threshold_up = float(data_threshold_up[1:])
+                    dt_threshold = serial_threshold_up
+                    self.ids.lb_volt_threshold.text = str(dt_threshold) + " mV"
+                    break
+                else:
+                    serial_obj.write(b">")
+                    data_threshold_up = serial_obj.readline().decode("utf-8").strip()
+                    break
+
+    def threshold_down(self):
+        global dt_threshold
+        global serial_obj
+
+        if(not DEBUG):
+            serial_obj.write(b"<")
+            data_threshold_down = serial_obj.readline().decode("utf-8").strip()
+            while True:
+                print(data_threshold_down)
+                if data_threshold_down[0] == "t":
+                # if data_threshold_down != "":
+                    data_threshold_down = float(data_threshold_down[1:])
+                    dt_threshold = data_threshold_down
+                    self.ids.lb_volt_threshold.text = str(dt_threshold) + " mV"
+                    break
+                else:
+                    serial_obj.write(b"<")
+                    data_threshold_down = serial_obj.readline().decode("utf-8").strip()
+                    break
+
+
     def illustrate(self):
-        global dt_mode
-        global dt_config
-        global dt_distance
-        global dt_constant
-        global dt_time
-        global dt_cycle
-        global x_datum
-        global y_datum
-        global data_pos
-        global data_rtu
-        global max_step
-        global arr_electrode
+        global dt_mode, dt_config, dt_distance, dt_constant, dt_time, dt_cycle
+        global x_datum, y_datum, data_pos, data_rtu, max_step, arr_electrode
 
         dt_distance = self.ids.slider_distance.value
         dt_constant = self.ids.slider_constant.value
@@ -381,15 +419,6 @@ class ScreenSetting(BoxLayout):
             data_c2 = x_electrode[3,:max_step]
 
             arr_electrode = np.array([data_c1, data_p1, data_p2, data_c2], dtype=int)
-            # print(arr_electrode.T)
-
-            # data_rtu = np.zeros([216,max_step], dtype=int)
-            # data_relay = arr_electrode
-            # for i in range(max_step):
-            #     data_rtu[arr_electrode[0,i]*4, i] = 1
-            #     data_rtu[arr_electrode[1,i]*4 + 1, i] = 1
-            #     data_rtu[arr_electrode[2,i]*4 + 2, i] = 1
-            #     data_rtu[arr_electrode[3,i]*4 + 3, i] = 1
 
         except:
             # print("error simulating")
@@ -496,10 +525,10 @@ class ScreenData(BoxLayout):
         global dt_cycle
 
         super(ScreenData, self).__init__(**kwargs)
-        Clock.schedule_once(self.delayed_init, 30)
+        Clock.schedule_once(self.delayed_init, DELAY_INITIAL)
 
     def delayed_init(self, dt):
-        Clock.schedule_interval(self.regular_check_event, 2)
+        Clock.schedule_interval(self.regular_check_event, UPDATE_INTERVAL)
 
         self.ids.bt_shutdown.md_bg_color = "#A50000"
         layout = self.ids.layout_tables
@@ -606,6 +635,7 @@ class ScreenData(BoxLayout):
 
         self.ids.bt_measure.text = "RUN MEASUREMENT"
         self.ids.bt_measure.md_bg_color = "#196BA5"
+        Clock.unschedule(self.measurement_sampling_event)
         Clock.unschedule(self.measurement_check_event)
         Clock.unschedule(self.inject_current_event)
         inject_state = 0
@@ -613,15 +643,20 @@ class ScreenData(BoxLayout):
         step = 0
         max_step = 0
         self.reset_switching()
-        if(not DEBUG):
-            serial_obj.write(b"_")
-            data_stop_inject = serial_obj.readline().decode("utf-8").strip()
-            while True:
-                if data_stop_inject == "Not Injected":
-                    break
-                else:
-                    serial_obj.write(b"_")
-                    data_stop_inject = serial_obj.readline().decode("utf-8").strip()
+        try:
+            if(not DEBUG):
+                serial_obj.write(b"_")
+                data_stop_inject = serial_obj.readline().decode("utf-8").strip()
+                while True:
+                    print(data_stop_inject)
+                    if data_stop_inject == "Not Injected":
+                        break
+                    else:
+                        serial_obj.write(b"_")
+                        data_stop_inject = serial_obj.readline().decode("utf-8").strip()
+        except Exception as e:
+            error_msg = str(e)
+            # toast(error_msg)
             # stop injecting 
         if flag_autosave_data:
             self.autosave_data()
@@ -738,54 +773,59 @@ class ScreenData(BoxLayout):
             Clock.unschedule(self.measurement_sampling_event)
             
             if(not DEBUG):
-
                 serial_obj.write(b"_") # inject positive current
                 data_stop_inject = serial_obj.readline().decode("utf-8").strip()
-                while True:
+                print(data_stop_inject)
+                toast(data_stop_inject)
+                while True:  
                     if data_stop_inject == "Not Injected":
                         break
                     else:
                         serial_obj.write(b"_")
                         data_stop_inject = serial_obj.readline().decode("utf-8").strip()
-                # toast("not injecting current")
                 self.switching_commands()
             
         elif(inject_state == 1 or inject_state == 5 or inject_state == 9 or inject_state == 13 or inject_state == 17 or inject_state == 21 or inject_state == 25 or inject_state == 29 or inject_state == 33 or inject_state == 37):
             Clock.schedule_interval(self.measurement_sampling_event, time_sampling)
 
             if(not DEBUG):
-
                 serial_obj.write(b"/")
-                data_plus_inject = serial_obj.readline().decode("utf-8").strip()
+                data_reset_inject = serial_obj.readline().decode("utf-8").strip()
+                print(data_reset_inject)
+                # toast(data_reset_inject)
                 while True:
-                    if data_plus_inject == "Inject positif":
+                    if data_reset_inject == "Reset Inject Voltage":
                         break
                     else:
-                        serial_obj.write(b"+")
-                        data_plus_inject = serial_obj.readline().decode("utf-8").strip()
+                        serial_obj.write(b"/")
+                        data_reset_inject = serial_obj.readline().decode("utf-8").strip()
                 
                 serial_obj.write(b"+")
                 data_plus_inject = serial_obj.readline().decode("utf-8").strip()
+                print(data_plus_inject)
+                toast(data_plus_inject)
                 while True:
-                    if data_plus_inject == "Inject positif":
+                    if data_plus_inject == "Inject Positif":
                         break
                     else:
                         serial_obj.write(b"+")
                         data_plus_inject = serial_obj.readline().decode("utf-8").strip()
 
                 data_indikasi_lanjut = serial_obj.readline().decode("utf-8").strip()
-                print("indikasi",data_indikasi_lanjut)
+                print(data_indikasi_lanjut)
+                # toast(data_indikasi_lanjut)
                 while True:
                     if data_indikasi_lanjut == "Lanjut":
                         break
                     else:
                         data_indikasi_lanjut = serial_obj.readline().decode("utf-8").strip()
-                # toast("inject positive current")
 
                 serial_obj.write(b"+")
                 data_plus_inject = serial_obj.readline().decode("utf-8").strip()
+                print(data_plus_inject)
+                # toast(data_plus_inject)
                 while True:
-                    if data_plus_inject == "Inject positif":
+                    if data_plus_inject == "Inject Positif":
                         break
                     else:
                         serial_obj.write(b"+")
@@ -797,28 +837,28 @@ class ScreenData(BoxLayout):
             if(not DEBUG):
                 serial_obj.write(b"_")
                 data_stop_inject = serial_obj.readline().decode("utf-8").strip()
+                print(data_stop_inject)
+                toast(data_stop_inject)
                 while True:
                     if data_stop_inject == "Not Injected":
                         break
                     else:
                         serial_obj.write(b"_")
                         data_stop_inject = serial_obj.readline().decode("utf-8").strip()
-                # toast("not injecting current")
             
         elif(inject_state == 3 or inject_state == 7 or inject_state == 11 or inject_state == 15 or inject_state == 19 or inject_state == 23 or inject_state == 27 or inject_state == 31 or inject_state == 35 or inject_state == 39):
             Clock.schedule_interval(self.measurement_sampling_event, time_sampling)
-
             if(not DEBUG):
                 serial_obj.write(b"-")
                 data_negatif_inject = serial_obj.readline().decode("utf-8").strip()
+                print(data_negatif_inject)
+                toast(data_negatif_inject)
                 while True:
                     if data_negatif_inject == "Inject Negatif":
                         break
                     else:
                         serial_obj.write(b"-")
                         data_negatif_inject = serial_obj.readline().decode("utf-8").strip()
-                # toast("inject negative current")
-
         inject_state += 1
         
     def measurement_sampling_event(self, dt):
@@ -826,56 +866,53 @@ class ScreenData(BoxLayout):
         global dt_current
         global dt_voltage
         global serial_obj
+        global flag_run
 
         # Data acquisition
         dt_voltage_temp = np.zeros_like(dt_voltage)
         dt_current_temp = np.zeros_like(dt_current)
 
-        if (not DEBUG):
-            #try:
-            serial_obj.write(b"a")
-            data_current = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
-            #print(data_current[0])
-            while True:
-                if data_current[0] == "a":
-                    curr = float(data_current[1:])
-                    
-                    realtime_current = curr
-                    
-                    print("Realtime Curr:", realtime_current)
-                    dt_current_temp[:1] = realtime_current
-                    print(data_current)
-                    print("data ampare", data_current[0])
-                    #time.sleep(0.5)
-                    break
-                else:
-                    serial_obj.write(b"a")
-                    data_current = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
+        if(flag_run):
+            if (not DEBUG):
+                #try:
+                serial_obj.write(b"a")
+                data_current = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
+                while True:
+                    if data_current[0] == "a":
+                        curr = float(data_current[1:])
+                        realtime_current = curr
+                        
+                        print("Realtime Curr:", realtime_current)
+                        dt_current_temp[:1] = realtime_current
+                        #time.sleep(0.5)
+                        break
+                    else:
+                        serial_obj.write(b"a")
+                        data_current = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
+                #except:
+                    #toast("Error read Current")
+                    #dt_current_temp[:1] = 0.0
+                
+                #try:
+                serial_obj.write(b"v")
+                data_millivoltage = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
+                #print(data_millivoltage)
+                while True:
+                    if data_millivoltage[0] == 'v':
+                        millivolt = float(data_millivoltage[1:])
+                        volt = millivolt / 1000
+                        realtime_voltage = volt
 
-                    
-            #except:
-                #toast("Error read Current")
-                #dt_current_temp[:1] = 0.0
-            
-            #try:
-            serial_obj.write(b"v")
-            data_millivoltage = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
-            #print(data_millivoltage)
-            while True:
-                if data_millivoltage[0] == 'v':
-                    millivolt = float(data_millivoltage[1:])
-                    volt = millivolt / 1000
-                    realtime_voltage = volt
-                        # print("Realtime Volt:", realtime_voltage)
-                    dt_voltage_temp[:1] = realtime_voltage
-                    #print(data_millivoltage)
-                    break
-                else:
-                    serial_obj.write(b"v")
-                    data_millivoltage = serial_obj.readline().decode("utf-8").strip()
-            #except:
-             #   toast("Error read Voltage")
-              #  dt_voltage_temp[:1] = 0.0
+                        print("Realtime Volt:", realtime_voltage)
+                        dt_voltage_temp[:1] = realtime_voltage
+                        #print(data_millivoltage)
+                        break
+                    else:
+                        serial_obj.write(b"v")
+                        data_millivoltage = serial_obj.readline().decode("utf-8").strip()
+                #except:
+                #   toast("Error read Voltage")
+                #  dt_voltage_temp[:1] = 0.0
 
         dt_voltage_temp[1:] = dt_voltage[:-1]
         dt_voltage = dt_voltage_temp
@@ -894,8 +931,8 @@ class ScreenData(BoxLayout):
             print(serial_text)
             serial_obj.write(serial_text.encode('utf-8'))
             validasi_patok = serial_obj.readline()#.decode("utf-8").strip()
-            print(validasi_patok)
             while True:
+                print(validasi_patok)
                 if  validasi_patok == 'Good':
                     break
                 else :
@@ -906,50 +943,19 @@ class ScreenData(BoxLayout):
                     print(validasi_patok)
         except:
             pass
-       
-            
-            # reshaped_data_rtu = data_rtu.T[step,:].reshape(6, 36)
-
-            # data_rtu1 = reshaped_data_rtu[0]
-            # data_rtu2 = reshaped_data_rtu[1]
-            # data_rtu3 = reshaped_data_rtu[2]
-            # data_rtu4 = reshaped_data_rtu[3]
-            # data_rtu5 = reshaped_data_rtu[4]
-            # data_rtu6 = reshaped_data_rtu[5]
-
-            # rtu1.write_bits(80, data_rtu1.tolist()) 
-            # rtu2.write_bits(80, data_rtu2.tolist()) 
-            # rtu3.write_bits(80, data_rtu3.tolist()) 
-            # rtu4.write_bits(80, data_rtu4.tolist()) 
-            # rtu5.write_bits(80, data_rtu5.tolist()) 
-            # rtu6.write_bits(80, data_rtu6.tolist()) 
-        
-            
+                   
 
     def reset_switching(self):
         try:
             serial_obj.write(b"%") # reset switching
             data_reset = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
-            #print(data_current[0])
             while True:
+                print(data_reset)
                 if data_reset == "Semua decoder mati":
                     break
                 else:
                     serial_obj.write(b"%") # reset switching
                     data_reset = serial_obj.readline().decode("utf-8").strip()
-            # data_rtu1 = np.zeros(36, dtype=int)
-            # data_rtu2 = np.zeros(36, dtype=int)
-            # data_rtu3 = np.zeros(36, dtype=int)
-            # data_rtu4 = np.zeros(36, dtype=int)
-            # data_rtu5 = np.zeros(36, dtype=int)
-            # data_rtu6 = np.zeros(36, dtype=int)
-
-            # rtu1.write_bits(80, data_rtu1.tolist()) 
-            # rtu2.write_bits(80, data_rtu2.tolist()) 
-            # rtu3.write_bits(80, data_rtu3.tolist()) 
-            # rtu4.write_bits(80, data_rtu4.tolist()) 
-            # rtu5.write_bits(80, data_rtu5.tolist()) 
-            # rtu6.write_bits(80, data_rtu6.tolist()) 
         except:
             pass
 
@@ -1065,7 +1071,7 @@ class ScreenData(BoxLayout):
                     toast("Sucessfully save data to The Default Directory")
                 except:
                     print("Error save data")
-                    # toast("error saving data")
+                    # toast("Error saving data")
                 
         else:
             toast("Cannot save data while measuring")
@@ -1131,10 +1137,10 @@ class ScreenGraph(BoxLayout):
 
     def __init__(self, **kwargs):
         super(ScreenGraph, self).__init__(**kwargs)
-        Clock.schedule_once(self.delayed_init, 30)
+        Clock.schedule_once(self.delayed_init, DELAY_INITIAL)
 
     def delayed_init(self, dt):
-        Clock.schedule_interval(self.regular_check_event, 5)
+        Clock.schedule_interval(self.regular_check_event, UPDATE_INTERVAL)
 
         self.ids.bt_shutdown.md_bg_color = "#A50000"
         self.fig, self.ax = plt.subplots()
@@ -1254,6 +1260,7 @@ class ScreenGraph(BoxLayout):
             data_pos = np.zeros([2, 0])
 
             try:
+                self.ids.layout_illustration.remove_widget(FigureCanvasKivyAgg(self.fig))
                 self.ids.layout_graph.clear_widgets()
                 self.fig, self.ax = plt.subplots()
                 self.fig.set_facecolor("#eeeeee")
