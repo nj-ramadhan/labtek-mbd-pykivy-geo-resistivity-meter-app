@@ -770,12 +770,12 @@ class ScreenData(BoxLayout):
         if (not DEBUG):
             try:
                 serial_obj.write(b"a")
-                # data_current = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
-                # if data_current != "":
-                #     curr = float(data_current)
-                #     realtime_current = curr
+                data_current = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
+                if data_current != "":
+                    curr = float(data_current)
+                    realtime_current = curr
                 # else:
-                realtime_current = np.random.randint(0, 500)
+                # realtime_current = np.random.randint(0, 500)
                 # print("Realtime Curr:", realtime_current)
                 dt_current_temp[:1] = realtime_current
             except Exception as e:
@@ -783,13 +783,13 @@ class ScreenData(BoxLayout):
             
             try:
                 serial_obj.write(b"v")
-                # data_millivoltage = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
-                # if data_millivoltage != "":
-                #     millivolt = float(data_millivoltage)
-                #     volt = millivolt / 1000
-                #     realtime_voltage = volt
+                data_millivoltage = serial_obj.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
+                if data_millivoltage != "":
+                    millivolt = float(data_millivoltage)
+                    volt = millivolt / 1000
+                    realtime_voltage = volt
                 # else:
-                realtime_voltage = np.random.randint(0, 200)
+                # realtime_voltage = np.random.randint(0, 200)
                 # print("Realtime Volt:", realtime_voltage)
                 dt_voltage_temp[:1] = realtime_voltage
             except Exception as e:
