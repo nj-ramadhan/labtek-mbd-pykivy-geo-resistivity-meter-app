@@ -279,27 +279,27 @@
 							orientation: "horizontal"
 							size_hint_y: 0.1
 							Label:
-								text: "(a) distance"
+								text: "(a) Dist."
 								font_size:12
 								color: 0, 0, 0
 
 							Label:
-								text: "(n) constant"
+								text: "(n) Cons."
 								font_size:12
 								color: 0, 0, 0
 
 							Label:
-								text: "(t) time"
+								text: "(t) Time"
 								font_size:12
 								color: 0, 0, 0
 
 							Label:
-								text: "(#) cycle"
+								text: "(#) Cycle"
 								font_size:12
 								color: 0, 0, 0
 
 							Label:
-								text: "volt threshold [mV]"
+								text: "V Thres"
 								font_size:12
 								color: 0, 0, 0
 
@@ -328,9 +328,9 @@
 							MDSlider:
 								id: slider_time
 								min: 100
-								max: 2000
+								max: 5000
 								step: 100
-								value: 1000
+								value: 2000
 								hint: True
 								hint_bg_color: "white"
 								orientation: 'vertical'
@@ -347,6 +347,8 @@
 
 							BoxLayout:
 								orientation: "vertical"
+								padding: 0, 25
+								spacing: 25
 
 								MDFillRoundFlatIconButton:
 									id: bt_threshold_up

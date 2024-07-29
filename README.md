@@ -3,11 +3,13 @@
 
 Install git
 clone this repository
-
 Install python 3.9.x
 
 install required python library
-pip install -r requirment.txt
+`pip install -r requirment.txt`
+
+install garden matplotlib library
+`garden install matplotlib`
 
 install MSVC Runtime for Windows PC 
-pip install msvc-runtime
+`pip install msvc-runtime`
