@@ -364,7 +364,7 @@ int Komunikasi() {
   {
     if (flag_tidak_ada_data_v == 1)
     {
-      Serial.println("v9999.00");
+      Serial.println("v00.00");
     }
     else if (indicator_voltase_cukup == 1)
     {
@@ -381,7 +381,7 @@ int Komunikasi() {
   {
     if (flag_tidak_ada_data_a == 1)
     {
-      Serial.println("a9999.00");
+      Serial.println("a00.00");
     }
     else if (indicator_voltase_cukup == 1)
     {
