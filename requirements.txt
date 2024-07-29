@@ -1,8 +1,5 @@
-adafruit_ads1x15==1.0.2
-board==1.0
 Kivy==2.1.0
 kivymd==1.1.1
 matplotlib==3.6.2
-minimalmodbus==2.1.1
 numpy==1.23.5
 pyserial==3.5
