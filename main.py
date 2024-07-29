@@ -72,7 +72,8 @@ TIMEOUT = 0.5
 
 REQUEST_TIME_OUT = 5.0
 DELAY_INITIAL = 7 #in seconds
-UPDATE_INTERVAL = 1 #in seconds
+UPDATE_INTERVAL = 2 #in seconds
+UPDATE_INTERVAL_GRAPH = 10
 
 x_electrode = np.zeros((4, MAX_POINT))
 n_electrode = np.zeros((ELECTRODES_NUM, STEPS))
@@ -98,6 +99,7 @@ dt_measure = np.zeros(6)
 dt_current = np.zeros(10)
 dt_voltage = np.zeros(10)
 flag_run = False
+flag_run_prev = False
 flag_measure = False
 flag_dongle = True
 flag_autosave_data = False
@@ -550,7 +552,7 @@ class ScreenData(BoxLayout):
 
     def regular_check_event(self, dt):
         # print("this is regular check event at data screen")
-        global flag_run
+        global flag_run, flag_run_prev
         global flag_measure
         global flag_dongle
         global count_mounting
@@ -562,7 +564,27 @@ class ScreenData(BoxLayout):
         global step
         global max_step
         global serial_obj
-        global flag_run
+
+        if not DISK_ADDRESS.exists() and flag_dongle:
+             try:
+                 toast("Try mounting The Dongle")
+                 serial_file = str(DISK_ADDRESS) + "\serial.key" #for windows os
+                #  serial_file = str(DISK_ADDRESS) + "/serial.key" #for linux os 
+                 # print(serial_file)
+                 with open(serial_file,"r") as f:
+                     serial_number = f.readline()
+                     if serial_number == SERIAL_NUMBER:
+                         toast("Successfully mounting The Dongle, the Serial number is valid")
+                         self.ids.bt_save_data.disabled = False
+                     else:
+                         toast("Failed mounting The Dongle, the Serial number is invalid")
+                         self.ids.bt_save_data.disabled = True                    
+             except:
+                 toast("The Dongle could not be mounted")
+                 self.ids.bt_save_data.disabled = True
+                 count_mounting += 1
+                 if(count_mounting > 2):
+                     flag_dongle = False 
 
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
@@ -603,27 +625,11 @@ class ScreenData(BoxLayout):
             self.ids.bt_measure.text = "RUN MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#196BA5"
             self.stop_measure()
-           
-        if not DISK_ADDRESS.exists() and flag_dongle:
-             try:
-                 toast("Try mounting The Dongle")
-                 serial_file = str(DISK_ADDRESS) + "\serial.key" #for windows os
-                #  serial_file = str(DISK_ADDRESS) + "/serial.key" #for linux os 
-                 # print(serial_file)
-                 with open(serial_file,"r") as f:
-                     serial_number = f.readline()
-                     if serial_number == SERIAL_NUMBER:
-                         toast("Successfully mounting The Dongle, the Serial number is valid")
-                         self.ids.bt_save_data.disabled = False
-                     else:
-                         toast("Failed mounting The Dongle, the Serial number is invalid")
-                         self.ids.bt_save_data.disabled = True                    
-             except:
-                 toast("The Dongle could not be mounted")
-                 self.ids.bt_save_data.disabled = True
-                 count_mounting += 1
-                 if(count_mounting > 2):
-                     flag_dongle = False 
+        
+        if(flag_run == False and flag_run_prev == True):
+            self.reset_switching()
+        
+        flag_run_prev = flag_run
 
     def stop_measure(self):
         global flag_measure
@@ -642,22 +648,7 @@ class ScreenData(BoxLayout):
         flag_measure = False
         step = 0
         max_step = 0
-        self.reset_switching()
-        try:
-            if(not DEBUG):
-                serial_obj.write(b"_")
-                data_stop_inject = serial_obj.readline().decode("utf-8").strip()
-                while True:
-                    print(data_stop_inject)
-                    if data_stop_inject == "Not Injected":
-                        break
-                    else:
-                        serial_obj.write(b"_")
-                        data_stop_inject = serial_obj.readline().decode("utf-8").strip()
-        except Exception as e:
-            error_msg = str(e)
-            # toast(error_msg)
-            # stop injecting 
+
         if flag_autosave_data:
             self.autosave_data()
             flag_autosave_data = False
@@ -777,7 +768,7 @@ class ScreenData(BoxLayout):
                 data_stop_inject = serial_obj.readline().decode("utf-8").strip()
                 
                 print(data_stop_inject)
-                toast(data_stop_inject)
+                # toast(data_stop_inject)
                 while True:  
                     if data_stop_inject == "Not Injected":
                         break
@@ -804,7 +795,7 @@ class ScreenData(BoxLayout):
                 serial_obj.write(b"+")
                 data_plus_inject = serial_obj.readline().decode("utf-8").strip()
                 print(data_plus_inject)
-                # toast(data_plus_inject)
+                toast(data_plus_inject)
                 while True:
                     if data_plus_inject == "Inject Positif":
                         break
@@ -824,7 +815,7 @@ class ScreenData(BoxLayout):
                 serial_obj.write(b"+")
                 data_plus_inject = serial_obj.readline().decode("utf-8").strip()
                 print(data_plus_inject)
-                toast(data_plus_inject)
+                # toast(data_plus_inject)
                 while True:
                     if data_plus_inject == "Inject Positif":
                         break
@@ -839,7 +830,7 @@ class ScreenData(BoxLayout):
                 serial_obj.write(b"_")
                 data_stop_inject = serial_obj.readline().decode("utf-8").strip()
                 print(data_stop_inject)
-                toast(data_stop_inject)
+                # toast(data_stop_inject)
                 while True:
                     if data_stop_inject == "Not Injected":
                         break
@@ -957,8 +948,18 @@ class ScreenData(BoxLayout):
                 else:
                     serial_obj.write(b"%") # reset switching
                     data_reset = serial_obj.readline().decode("utf-8").strip()
+            
+            serial_obj.write(b"_")
+            data_stop_inject = serial_obj.readline().decode("utf-8").strip()
+            while True:
+                print(data_stop_inject)
+                if data_stop_inject == "Not Injected":
+                    break
+                else:
+                    serial_obj.write(b"_")
+                    data_stop_inject = serial_obj.readline().decode("utf-8").strip()
         except:
-            pass
+            print("Error reset switching")
 
     def reset_data(self):
         global data_base
@@ -1141,7 +1142,7 @@ class ScreenGraph(BoxLayout):
         Clock.schedule_once(self.delayed_init, DELAY_INITIAL)
 
     def delayed_init(self, dt):
-        Clock.schedule_interval(self.regular_check_event, UPDATE_INTERVAL)
+        Clock.schedule_interval(self.regular_check_event, UPDATE_INTERVAL_GRAPH)
 
         self.ids.bt_shutdown.md_bg_color = "#A50000"
         self.fig, self.ax = plt.subplots()
