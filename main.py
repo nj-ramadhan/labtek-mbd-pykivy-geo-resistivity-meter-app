@@ -62,7 +62,7 @@ PIN_POLARITY = 24 #18
 
 USERNAME = "labtek"
 DISK_ADDRESS = Path("D:\\") #windows version
-SERIAL_NUMBER = "2301212112233412"
+SERIAL_NUMBER = "2407302112233412"
 
 BAUDRATE = 9600
 BYTESIZE = 8
@@ -75,6 +75,7 @@ DELAY_INITIAL = 7 #in seconds
 UPDATE_INTERVAL = 2 #in seconds
 UPDATE_INTERVAL_GRAPH = 5
 GRAPH_STATE_COUNT = 5
+DONGLE_MOUNT_MAX_RETRY = 2
 
 x_electrode = np.zeros((4, MAX_POINT))
 n_electrode = np.zeros((ELECTRODES_NUM, STEPS))
@@ -566,17 +567,18 @@ class ScreenData(BoxLayout):
         global max_step
         global serial_obj
 
-        if not DISK_ADDRESS.exists() and flag_dongle:
+        if flag_dongle:
              try:
                  toast("Try mounting The Dongle")
                  serial_file = str(DISK_ADDRESS) + "\serial.key" #for windows os
-                #  serial_file = str(DISK_ADDRESS) + "/serial.key" #for linux os 
-                 # print(serial_file)
+                #  serial_file = str(DISK_ADDRESS) + "/serial.key" #for linux os
                  with open(serial_file,"r") as f:
                      serial_number = f.readline()
+                     print("serial number:",serial_number)
                      if serial_number == SERIAL_NUMBER:
                          toast("Successfully mounting The Dongle, the Serial number is valid")
                          self.ids.bt_save_data.disabled = False
+                         flag_dongle = False 
                      else:
                          toast("Failed mounting The Dongle, the Serial number is invalid")
                          self.ids.bt_save_data.disabled = True                    
@@ -584,7 +586,7 @@ class ScreenData(BoxLayout):
                  toast("The Dongle could not be mounted")
                  self.ids.bt_save_data.disabled = True
                  count_mounting += 1
-                 if(count_mounting > 2):
+                 if(count_mounting > DONGLE_MOUNT_MAX_RETRY):
                      flag_dongle = False 
 
         if(flag_run):
@@ -594,7 +596,6 @@ class ScreenData(BoxLayout):
             flag_autosave_data = True
             measure_interval = (int(4 * dt_cycle * dt_time) / 1000)
             inject_interval = (int(dt_time) / 1000)
-            # print("measure interval:", measure_interval, " inject interval:", inject_interval)
 
             if("(VES) VERTICAL ELECTRICAL SOUNDING" in dt_mode):
                 if(flag_measure == False):
@@ -657,13 +658,10 @@ class ScreenData(BoxLayout):
     def measurement_check_event(self, dt):
         # print("this is measurement check event at data screen")
         global flag_run
-        global dt_time
-        global dt_cycle
+        global dt_time, dt_cycle
         global data_base
-        global arr_electrode
-        global data_electrode
-        global dt_current
-        global dt_voltage
+        global arr_electrode, data_electrode
+        global dt_current, dt_voltage
         global x_electrode
         global step
         global serial_obj
@@ -711,18 +709,6 @@ class ScreenData(BoxLayout):
         electrode_pos.resize([4, 1])
         data_electrode = np.concatenate([data_electrode, electrode_pos], axis=1)
 
-        try:
-            data_c1 = arr_electrode[0, step] + 1
-            data_p1 = arr_electrode[1, step] + 1
-            data_p2 = arr_electrode[2, step] + 1
-            data_c2 = arr_electrode[3, step] + 1
-            electrode_pos = np.array([data_c1, data_p1, data_p2, data_c2])
-        except:
-            electrode_pos = np.array([1, 2, 3, 4])
-
-        electrode_pos.resize([4, 1])
-        data_electrode = np.concatenate([data_electrode, electrode_pos], axis=1)
-
         self.ids.realtime_voltage.text = f"{voltage:.3f}"
         self.ids.realtime_current.text = f"{current:.3f}"
         self.ids.realtime_resistivity.text = f"{resistivity:.3f}"
@@ -747,10 +733,8 @@ class ScreenData(BoxLayout):
 
     def inject_current_event(self, dt):
         # print("this is inject current event at data screen")
-        global inject_state
-        global step
-        global dt_cycle
-        global dt_time
+        global inject_state, step
+        global dt_cycle, dt_time
         global serial_obj
 
         time_sampling = (int(dt_time) / 10000)
@@ -763,11 +747,12 @@ class ScreenData(BoxLayout):
             
         if(inject_state == 0 or inject_state == 4 or inject_state == 8 or inject_state == 12 or inject_state == 16 or inject_state == 20 or inject_state == 24 or inject_state == 28 or inject_state == 32 or inject_state == 36):
             Clock.unschedule(self.measurement_sampling_event)
-            
+            toast_msg = "Measurement " + str(step + 1)
+            toast(toast_msg)
+
             if(not DEBUG):
                 serial_obj.write(b"_") # inject positive current
                 data_stop_inject = serial_obj.readline().decode("utf-8").strip()
-                
                 print(data_stop_inject)
                 # toast(data_stop_inject)
                 while True:  
@@ -796,7 +781,7 @@ class ScreenData(BoxLayout):
                 serial_obj.write(b"+")
                 data_plus_inject = serial_obj.readline().decode("utf-8").strip()
                 print(data_plus_inject)
-                toast(data_plus_inject)
+                # toast(data_plus_inject)
                 while True:
                     if data_plus_inject == "Inject Positif":
                         break
@@ -845,7 +830,7 @@ class ScreenData(BoxLayout):
                 serial_obj.write(b"-")
                 data_negatif_inject = serial_obj.readline().decode("utf-8").strip()
                 print(data_negatif_inject)
-                toast(data_negatif_inject)
+                # toast(data_negatif_inject)
                 while True:
                     if data_negatif_inject == "Inject Negatif":
                         break
@@ -856,8 +841,7 @@ class ScreenData(BoxLayout):
         
     def measurement_sampling_event(self, dt):
         # print("this is measurment sampling event at data screen")
-        global dt_current
-        global dt_voltage
+        global dt_current, dt_voltage
         global serial_obj
         global flag_run
 
@@ -1012,82 +996,69 @@ class ScreenData(BoxLayout):
             toast("Error sorting data")
             
     def save_data(self):
-        global data_base
-        global data_electrode
-        global dt_distance
-        global dt_config
+        global data_base, data_electrode
+        global dt_distance, dt_config
         global data_pos
         global serial_obj
 
         if(not flag_run):
+            if("WENNER (ALPHA)" in dt_config):
+                mode = 1
+            elif("WENNER (BETA)" in dt_config):
+                mode = 1
+            elif("WENNER (GAMMA)" in dt_config):
+                mode = 1
+            elif("POLE-POLE" in dt_config):
+                mode = 2
+            elif("DIPOLE-DIPOLE" in dt_config):
+                mode = 3
+            elif("SCHLUMBERGER" in dt_config):
+                mode = 7
+            toast("Saving data")
+
             try:
-                if("WENNER (ALPHA)" in dt_config):
-                    mode = 1
-                    
-                elif("WENNER (BETA)" in dt_config):
-                    mode = 1
-                    
-                elif("WENNER (GAMMA)" in dt_config):
-                    mode = 1
-                    
-                elif("POLE-POLE" in dt_config):
-                    mode = 2
-                    
-                elif("DIPOLE-DIPOLE" in dt_config):
-                    mode = 3
-                    
-                elif("SCHLUMBERGER" in dt_config):
-                    mode = 7
-                    
-                toast("Saving data")
-
-                x_loc = data_pos[0, :]
-                # print(x_loc)
-
-                data = data_base[2, :len(x_loc)]
-                # print(data)
-
-                spaces = data_pos[0, :] - data_pos[0, :-1]
-                print(spaces)
-
+                data = data_base[2, :]
+                x_loc = data_pos[0, :data.size]
+                spaces = np.ones_like(data) * dt_distance
                 data_write = np.vstack((x_loc, spaces, data))
+                # data_write = np.vstack((data_write, data))
                 if(data_write.size == 0):
                     data_write = np.array([[0,1,2,3]])
                 print(data_write)
-
+            except Exception as e:
+                toast("Error saving data, measurement is not completed yet")
+            try:
                 now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
                 disk = str(DISK_ADDRESS) + "\data\\" + now # for windows os
-                head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, len(data_base.T[2]))
+                head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, data.size)
                 foot="0 \n0 \n0 \n0 \n0"
                 with open(disk,"wb") as f:
                     np.savetxt(f, data_write.T, fmt="%.3f", delimiter="\t", header=head, footer=foot, comments="")
+                print("Sucessfully save data to The Dongle")
                 toast("Sucessfully save data to The Dongle")
             except:
                 try:
                     now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
                     disk = os.getcwd() + "\data\\" + now #for windows os
-                    head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, len(data_base.T[2]))
+                    head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, data.size)
                     foot="0 \n0 \n0 \n0 \n0"
                     with open(disk,"wb") as f:
                         np.savetxt(f, data_write.T, fmt="%.3f", delimiter="\t", header=head, footer=foot, comments="")
-                    # print("sucessfully save data to Default Directory")
+                    print("sucessfully save data to The Default Directory")
                     toast("Sucessfully save data to The Default Directory")
-                except:
-                    print("Error save data")
+                except Exception as e:
+                    print("Error save data " + str(e))
                     # toast("Error saving data")
-                
         else:
             toast("Cannot save data while measuring")
 
     def autosave_data(self):
-        global data_base
-        global data_electrode
+        global data_base, data_electrode
+
+        data_save = np.vstack((data_electrode, data_base))
+        now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.raw")
 
         try:
-            data_save = np.vstack((data_electrode, data_base))
-            # print(data_save.T)
-
-            now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.raw")
             disk = str(DISK_ADDRESS) + "\data\\" + now # for windows os
             with open(disk,"wb") as f:
                 np.savetxt(f, data_save.T, fmt="%.3f",delimiter="\t",header="C1  \t P1  \t P2  \t C2  \t Volt [V] \t Curr [mA] \t Res [kOhm] \t StdDev \t IP [R decay]")
@@ -1095,15 +1066,14 @@ class ScreenData(BoxLayout):
             toast("Sucessfully auto save data to The Dongle")
         except:
             try:
-                now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.raw")
                 cwd = os.getcwd()
                 disk = cwd + "\data\\" + now #for windows os
                 with open(disk,"wb") as f:
                     np.savetxt(f, data_save.T, fmt="%.3f",delimiter="\t",header="C1  \t P1  \t P2  \t C2  \t Volt [V] \t Curr [mA] \t Res [kOhm] \t StdDev \t IP [R decay]")
                 # print("sucessfully auto save data to Default Directory")
                 toast("Sucessfully save data to The Default Directory")
-            except:
-                print("Error auto save data")
+            except Exception as e:
+                print("Error autosave data" + str(e))
                 # toast("Error auto saving data")
 
     def measure(self):
@@ -1187,17 +1157,19 @@ class ScreenGraph(BoxLayout):
 
         graph_state += 1
 
-        if not DISK_ADDRESS.exists() and flag_dongle:
+        if flag_dongle:
             try:
                 print("try mounting")
-                serial_file = str(DISK_ADDRESS) + "\serial.key" #for windows os
+                serial_file = str(DISK_ADDRESS) + "serial.key" #for windows os
                 #  serial_file = str(DISK_ADDRESS) + "/serial.key" #for linux os 
                 # print(serial_file)
                 with open(serial_file,"r") as f:
                     serial_number = f.readline()
+                    print("serial number:",serial_number)
                     if serial_number == SERIAL_NUMBER:
                         toast("Success mounting The Dongle, the Serial number is valid")
                         self.ids.bt_save_graph.disabled = False
+                        flag_dongle = False
                     else:
                         toast("Failed mounting The Dongle, the Serial number is invalid")
                         self.ids.bt_save_graph.disabled = True                    
@@ -1205,7 +1177,7 @@ class ScreenGraph(BoxLayout):
                 toast("The Dongle could not be mounted")
                 self.ids.bt_save_graph.disabled = True
                 count_mounting += 1
-                if(count_mounting > 2):
+                if(count_mounting > DONGLE_MOUNT_MAX_RETRY):
                     flag_dongle = False 
 
     def update_graph(self):
