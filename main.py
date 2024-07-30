@@ -73,7 +73,8 @@ TIMEOUT = 0.5
 REQUEST_TIME_OUT = 5.0
 DELAY_INITIAL = 7 #in seconds
 UPDATE_INTERVAL = 2 #in seconds
-UPDATE_INTERVAL_GRAPH = 10
+UPDATE_INTERVAL_GRAPH = 5
+GRAPH_STATE_COUNT = 5
 
 x_electrode = np.zeros((4, MAX_POINT))
 n_electrode = np.zeros((ELECTRODES_NUM, STEPS))
@@ -1167,7 +1168,7 @@ class ScreenGraph(BoxLayout):
         global graph_state
         global serial_obj
 
-        if(graph_state > 10):
+        if(graph_state > GRAPH_STATE_COUNT):
             graph_state = 0
 
         if(flag_run):
