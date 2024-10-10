@@ -58,7 +58,7 @@ colors = {
     },
 }
 
-DEBUG = True
+DEBUG = False
     
 STEPS = 51
 # MAX_POINT_WENNER = 500
@@ -84,33 +84,29 @@ DISK_ADDRESS = Path("/media/labtek/RESDONGLE/")
 #DISK_ADDRESS = Path("/media/" + USERNAME + "/RESDONGLE/")
 SERIAL_NUMBER = "2301212112233412"
 
-BAUDRATE = 19200
+USERNAME = "labtek"
+DISK_ADDRESS = Path("D:\\") #windows version
+SERIAL_NUMBER = "2407302112233412"
+
+BAUDRATE = 9600
 BYTESIZE = 8
 PARITY = serial.PARITY_NONE
-STOPBIT = 2
-TIMEOUT = 0.05
+STOPBIT = 1
+TIMEOUT = 0.5
 
-if(not DEBUG):
-    # import ADC and I2C library 
-    import board
-    import busio
-    import adafruit_ads1x15.ads1115 as ADS
-    from adafruit_ads1x15.analog_in import AnalogIn
-    import RPi.GPIO as GPIO    
-    # GPIO control and sensor acquisiton
-    import RPi.GPIO as GPIO
-    i2c = busio.I2C(board.SCL, board.SDA)
-    ads = ADS.ADS1115(i2c)
-#     from ina219c import INA219 as read_c
-#     from ina219p import INA219 as read_p
+BAUDRATE_RTU = 19200
+BYTESIZE_RTU = 8
+PARITY_RTU = serial.PARITY_NONE
+STOPBIT_RTU = 2
+TIMEOUT_RTU = 0.05
 
-    GPIO.cleanup
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(PIN_ENABLE, GPIO.OUT)
-    GPIO.setup(PIN_POLARITY, GPIO.OUT)
+REQUEST_TIME_OUT = 5.0
+DELAY_INITIAL = 7 #in seconds
+UPDATE_INTERVAL = 2 #in seconds
+UPDATE_INTERVAL_GRAPH = 5
+GRAPH_STATE_COUNT = 5
+DONGLE_MOUNT_MAX_RETRY = 2
 
-# x_datum = np.zeros(MAX_POINT)
-# y_datum = np.zeros(MAX_POINT)
 x_electrode = np.zeros((4, MAX_POINT))
 n_electrode = np.zeros((ELECTRODES_NUM, STEPS))
 c_electrode = np.array(["#196BA5","#FF0000","#FFDD00","#00FF00","#00FFDD"])
@@ -129,11 +125,13 @@ dt_constant = 1
 real_constant = 1
 dt_time = 500
 dt_cycle = 1
+dt_threshold = 20.0
 
 dt_measure = np.zeros(6)
 dt_current = np.zeros(10)
 dt_voltage = np.zeros(10)
 flag_run = False
+flag_run_prev = False
 flag_measure = False
 flag_dongle = True
 flag_autosave_data = False
@@ -221,19 +219,20 @@ class ScreenSetting(BoxLayout):
         try:
             ports = list_ports.comports(include_links=False)
             for port in ports :
-#                com_port = port.device[0]
+#                com_port_rtu = port.device[0]
                 
                 # change port setting to "COMXX" for windows
-                com_port = "/dev/ttyUSB0"
-                toast("switching box is connected to " + com_port)
-                print("switching box is connected to " + com_port)
+                # com_port_rtu = "/dev/ttyUSB0"
+                com_port_rtu = "COM13"
+                toast("switching box is connected to " + com_port_rtu)
+                print("switching box is connected to " + com_port_rtu)
 
-            rtu1 = minimalmodbus.Instrument(com_port, 1 ,mode=minimalmodbus.MODE_RTU)
-            rtu2 = minimalmodbus.Instrument(com_port, 2 ,mode=minimalmodbus.MODE_RTU)
-            rtu3 = minimalmodbus.Instrument(com_port, 3 ,mode=minimalmodbus.MODE_RTU)
-            rtu4 = minimalmodbus.Instrument(com_port, 4 ,mode=minimalmodbus.MODE_RTU)
-            rtu5 = minimalmodbus.Instrument(com_port, 5 ,mode=minimalmodbus.MODE_RTU)
-            rtu6 = minimalmodbus.Instrument(com_port, 6 ,mode=minimalmodbus.MODE_RTU)
+            rtu1 = minimalmodbus.Instrument(com_port_rtu, 1 ,mode=minimalmodbus.MODE_RTU)
+            rtu2 = minimalmodbus.Instrument(com_port_rtu, 2 ,mode=minimalmodbus.MODE_RTU)
+            rtu3 = minimalmodbus.Instrument(com_port_rtu, 3 ,mode=minimalmodbus.MODE_RTU)
+            rtu4 = minimalmodbus.Instrument(com_port_rtu, 4 ,mode=minimalmodbus.MODE_RTU)
+            rtu5 = minimalmodbus.Instrument(com_port_rtu, 5 ,mode=minimalmodbus.MODE_RTU)
+            rtu6 = minimalmodbus.Instrument(com_port_rtu, 6 ,mode=minimalmodbus.MODE_RTU)
 
             rtu1.write_bits(80, data_rtu1.tolist()) 
             rtu2.write_bits(80, data_rtu2.tolist()) 
@@ -245,6 +244,65 @@ class ScreenSetting(BoxLayout):
         except:
             toast("no switching box connected")
             print("no switching box connected")
+
+        try:
+            self.connect_to_mcu()
+            Clock.schedule_interval(self.read_mcu, REQUEST_TIME_OUT)
+            toast("Switching unit is sucessfully connected")
+        except:
+            Clock.schedule_interval(self.auto_reconnect, REQUEST_TIME_OUT)
+            toast("Switching unit is disconnected")
+
+        # try:
+        #     com_port_mcu.write(b"%") # reset switching
+        #     data_reset = com_port_mcu.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
+        #     while True:
+        #         print(data_reset)
+        #         if data_reset == "Semua decoder mati":
+        #             break
+        #         else:
+        #             com_port_mcu.write(b"%") # reset switching
+        #             data_reset = com_port_mcu.readline().decode("utf-8").strip()
+
+        # except:
+        #     toast("No Switching Unit connected")
+            # print("no switching unit connected")
+
+    def auto_reconnect(self, dt):
+        try:
+            self.connect_to_mcu()
+            Clock.schedule_interval(self.read_mcu, REQUEST_TIME_OUT)
+            Clock.unschedule(self.auto_reconnect)
+        except:
+            toast("Switching unit is disconnected, try reconnecting..")
+
+    def read_mcu(self, dt):
+        global com_port_mcu
+        global dt_threshold
+
+        if(not DEBUG):
+            try:
+                print("Reading mcu")
+                com_port_mcu.write(b" ")
+            except Exception as e:
+                Clock.schedule_interval(self.auto_reconnect, REQUEST_TIME_OUT)
+                error_msg = "Error reading Switching unit :" + str(e)
+                print(error_msg)
+
+    def connect_to_mcu(self):
+        global com_port_mcu
+
+        if(not DEBUG):
+            try:
+                com_port_mcu = serial.Serial("COM3")  # COM to Microcontroller, checked manually
+                com_port_mcu.baudrate = BAUDRATE
+                com_port_mcu.parity = PARITY
+                com_port_mcu.bytesize = BYTESIZE
+                toast("Sucessfully connect to Switching unit")
+            except Exception as e:
+                error_msg = "Error connect to Switching unit :" + str(e)
+                print(error_msg)
+                toast("Error connect to Switching unit, try reconnecting")
 
     def illustrate(self):
         global dt_mode
@@ -501,10 +559,111 @@ class ScreenData(BoxLayout):
     def __init__(self, **kwargs):
         global dt_time
         global dt_cycle
-        
+
         super(ScreenData, self).__init__(**kwargs)
-        Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check, 2.5)
+        Clock.schedule_once(self.delayed_init, DELAY_INITIAL)
+
+    def delayed_init(self, dt):
+        Clock.schedule_interval(self.regular_check_event, UPDATE_INTERVAL)
+
+        self.ids.bt_shutdown.md_bg_color = "#A50000"
+        layout = self.ids.layout_tables
+        
+        self.data_tables = MDDataTable(
+            use_pagination=True,
+            pagination_menu_pos="auto",
+            rows_num=4,
+            column_data=[
+                ("No.", dp(10), self.sort_on_num),
+                ("Volt [V]", dp(27)),
+                ("Curr [mA]", dp(27)),
+                ("Resi [kOhm]", dp(27)),
+                ("Std Dev Res", dp(27)),
+                ("IP (R decay)", dp(27)),
+            ],
+        )
+        layout.add_widget(self.data_tables)
+
+    def regular_check_event(self, dt):
+        # print("this is regular check event at data screen")
+        global flag_run, flag_run_prev
+        global flag_measure
+        global flag_dongle
+        global count_mounting
+        global dt_time
+        global dt_cycle
+        global dt_mode
+        global inject_state
+        global flag_autosave_data
+        global step
+        global max_step
+        global com_port_mcu
+
+        if flag_dongle:
+             try:
+                 toast("Try mounting The Dongle")
+                 serial_file = str(DISK_ADDRESS) + "\serial.key" #for windows os
+                #  serial_file = str(DISK_ADDRESS) + "/serial.key" #for linux os
+                 with open(serial_file,"r") as f:
+                     serial_number = f.readline()
+                     print("serial number:",serial_number)
+                     if serial_number == SERIAL_NUMBER:
+                         toast("Successfully mounting The Dongle, the Serial number is valid")
+                         self.ids.bt_save_data.disabled = False
+                         flag_dongle = False 
+                     else:
+                         toast("Failed mounting The Dongle, the Serial number is invalid")
+                         self.ids.bt_save_data.disabled = True                    
+             except:
+                 toast("The Dongle could not be mounted")
+                 self.ids.bt_save_data.disabled = True
+                 count_mounting += 1
+                 if(count_mounting > DONGLE_MOUNT_MAX_RETRY):
+                     flag_dongle = False 
+
+        if(flag_run):
+            self.ids.bt_measure.text = "STOP MEASUREMENT"
+            self.ids.bt_measure.md_bg_color = "#A50000"
+
+            flag_autosave_data = True
+            measure_interval = (int(4 * dt_cycle * dt_time) / 1000)
+            inject_interval = (int(dt_time) / 1000)
+
+            if("(VES) VERTICAL ELECTRICAL SOUNDING" in dt_mode):
+                if(flag_measure == False):
+                    Clock.schedule_interval(self.measurement_check_event, measure_interval)
+                    Clock.schedule_interval(self.inject_current_event, inject_interval)
+                flag_measure = True
+        
+            elif("(SP) SELF POTENTIAL" in dt_mode):
+                if(flag_measure == False):
+                    Clock.schedule_interval(self.measurement_check_event, measure_interval)
+                    Clock.schedule_interval(self.measurement_sampling_event, inject_interval)
+                flag_measure = True
+                
+            elif("(R) RESISTIVITY" in dt_mode):
+                if(flag_measure == False):
+                    Clock.schedule_interval(self.measurement_check_event, measure_interval)
+                    Clock.schedule_interval(self.inject_current_event, inject_interval)
+                flag_measure = True
+                
+            elif("(R+IP) INDUCED POLARIZATION" in dt_mode):
+                if(flag_measure == False):
+                    Clock.schedule_interval(self.measurement_check_event, measure_interval)
+                    Clock.schedule_interval(self.inject_current_event, inject_interval)
+                flag_measure = True                        
+            else:
+                pass
+
+        else:
+            self.ids.bt_measure.text = "RUN MEASUREMENT"
+            self.ids.bt_measure.md_bg_color = "#196BA5"
+            self.stop_measure()
+        
+        if(flag_run == False and flag_run_prev == True):
+            self.reset_switching()
+        
+        flag_run_prev = flag_run
 
     def stop_measure(self):
         global flag_measure
@@ -512,104 +671,32 @@ class ScreenData(BoxLayout):
         global flag_autosave_data
         global step
         global max_step
+        global com_port_mcu
 
         self.ids.bt_measure.text = "RUN MEASUREMENT"
         self.ids.bt_measure.md_bg_color = "#196BA5"
-        Clock.unschedule(self.measurement_check)
-        Clock.unschedule(self.inject_current)
+        Clock.unschedule(self.measurement_sampling_event)
+        Clock.unschedule(self.measurement_check_event)
+        Clock.unschedule(self.inject_current_event)
         inject_state = 0
         flag_measure = False
         step = 0
         max_step = 0
-        self.reset_switching()
-        if(not DEBUG):
-            # change to communication to exec relay
-            GPIO.output(PIN_ENABLE, GPIO.HIGH)
-            GPIO.output(PIN_POLARITY, GPIO.HIGH)
-        if(flag_autosave_data):
+
+        if flag_autosave_data:
             self.autosave_data()
             flag_autosave_data = False
 
-    def regular_check(self, dt):
+    def measurement_check_event(self, dt):
+        # print("this is measurement check event at data screen")
         global flag_run
-        global flag_measure
-        global flag_dongle
-        global count_mounting
-        global dt_time
-        global dt_cycle
-        global inject_state
-        global flag_autosave_data
-        global step
-        global max_step
-
-        if(flag_run):
-            self.ids.bt_measure.text = "STOP MEASUREMENT"
-            self.ids.bt_measure.md_bg_color = "#A50000"
-
-            flag_autosave_data = True
-            measure_interval = ((4 * dt_cycle * dt_time) / 1000)
-            inject_interval = ((dt_time) / 1000)
-            # print("measure interval:", measure_interval, " inject interval:", inject_interval)
-
-            if("(VES) VERTICAL ELECTRICAL SOUNDING" in dt_mode):
-                if(flag_measure == False):
-                    Clock.schedule_interval(self.measurement_check, measure_interval)
-                    Clock.schedule_interval(self.inject_current, inject_interval)
-                flag_measure = True
-        
-            elif("(SP) SELF POTENTIAL" in dt_mode):
-                if(flag_measure == False):
-                    Clock.schedule_interval(self.measurement_check, measure_interval)
-                    Clock.schedule_interval(self.measurement_sampling, inject_interval)
-                flag_measure = True
-                
-            elif("(R) RESISTIVITY" in dt_mode):
-                if(flag_measure == False):
-                    Clock.schedule_interval(self.measurement_check, measure_interval)
-                    Clock.schedule_interval(self.inject_current, inject_interval)
-                flag_measure = True
-                
-            elif("(R+IP) INDUCED POLARIZATION" in dt_mode):
-                if(flag_measure == False):
-                    Clock.schedule_interval(self.measurement_check, measure_interval)
-                    Clock.schedule_interval(self.inject_current, inject_interval)
-                flag_measure = True                        
-            else:
-                pass
-
-        else:
-            # self.stop_measure()
-            pass
-           
-        if not DISK_ADDRESS.exists() and flag_dongle:
-             try:
-                 toast("try mounting")
-                 serial_file = str(DISK_ADDRESS) + "/serial.key"
-                 # print(serial_file)
-                 with open(serial_file,"r") as f:
-                     serial_number = f.readline()
-                     if serial_number == SERIAL_NUMBER:
-                         print("success, serial number is valid")
-                         self.ids.bt_save_data.disabled = False
-                     else:
-                         print("fail, serial number is invalid")
-                         self.ids.bt_save_data.disabled = True                    
-             except:
-                 toast(f"Could not mount Dongle")
-                 self.ids.bt_save_data.disabled = True
-                 count_mounting += 1
-                 if(count_mounting > 10):
-                     flag_dongle = False 
-
-    def measurement_check(self, dt):
-        global flag_run
-        global dt_time
+        global dt_time, dt_cycle
         global data_base
-        global data_electrode
-        global dt_current
-        global dt_voltage
+        global arr_electrode, data_electrode
+        global dt_current, dt_voltage
         global x_electrode
         global step
+        global com_port_mcu
 
         if("WENNER (ALPHA)" in dt_config):
             k = 2 * np.pi * dt_distance * dt_constant
@@ -623,16 +710,20 @@ class ScreenData(BoxLayout):
             k = np.pi * dt_distance * dt_constant * (dt_constant + 1) * (dt_constant + 2)
         elif("SCHLUMBERGER" in dt_config):
             k = np.pi * dt_distance * dt_constant * (dt_constant + 1)
+        else:
+            k = 1
 
         voltage = np.max(np.fabs(dt_voltage))
         current = np.max(np.fabs(dt_current))
         if(current > 0.0):
             resistivity = k * voltage / current
+            resistivity = k * voltage / current
         else:
+            resistivity = 0.0
             resistivity = 0.0
             
         std_resistivity = np.std(data_base[2, :])
-        ip_decay = (np.sum(dt_voltage) / voltage ) * ((dt_cycle * dt_time)/10000)
+        ip_decay = (np.sum(dt_voltage) / voltage ) * (int(dt_cycle * dt_time)/10000)
 
         data_acquisition = np.array([voltage, current, resistivity, std_resistivity, ip_decay])
         data_acquisition.resize([5, 1])
@@ -662,96 +753,182 @@ class ScreenData(BoxLayout):
         self.ids.average_current.text = f"{avg_current:.3f}"
         self.ids.average_resistivity.text = f"{avg_resistivity:.3f}"
 
+        avg_voltage = np.average(data_base[0, :])
+        avg_current = np.average(data_base[1, :])
+        avg_resistivity = np.average(data_base[2, :])
+
+        self.ids.average_voltage.text = f"{avg_voltage:.3f}"
+        self.ids.average_current.text = f"{avg_current:.3f}"
+        self.ids.average_resistivity.text = f"{avg_resistivity:.3f}"
+
         self.data_tables.row_data=[(f"{i + 1}", f"{data_base[0,i]:.3f}", f"{data_base[1,i]:.3f}", f"{data_base[2,i]:.3f}", f"{data_base[3,i]:.3f}", f"{data_base[4,i]:.3f}") for i in range(len(data_base[1]))]
 
-        print("shape:", arr_electrode.shape, " step:",step)
+    def inject_current_event(self, dt):
+        # print("this is inject current event at data screen")
+        global inject_state, step
+        global dt_cycle, dt_time
+        global com_port_mcu
 
-        if(arr_electrode.shape == (4, step+1)):
-            print("stop")
-            flag_run = False
-            self.stop_measure()
-
-
-    def inject_current(self, dt):
-        global inject_state
-        global step
-        global dt_cycle
+        time_sampling = (int(dt_time) / 10000)
+        # print("sampling time:", time_sampling, ", inject state:", inject_state)
 
         if(inject_state >= int(4 * dt_cycle)):
-            Clock.unschedule(self.measurement_sampling)
+            Clock.unschedule(self.measurement_sampling_event)
             inject_state = 0
             step += 1
             
-        if(inject_state == 0 | inject_state == 4 | inject_state == 8 | inject_state == 12 | inject_state == 16 | inject_state == 20 | inject_state == 24 | inject_state == 28 | inject_state == 32 | inject_state == 36):
-            Clock.unschedule(self.measurement_sampling)
-            self.switching_commands()
+        if(inject_state == 0 or inject_state == 4 or inject_state == 8 or inject_state == 12 or inject_state == 16 or inject_state == 20 or inject_state == 24 or inject_state == 28 or inject_state == 32 or inject_state == 36):
+            Clock.unschedule(self.measurement_sampling_event)
+            toast_msg = "Measurement " + str(step + 1)
+            toast(toast_msg)
+
             if(not DEBUG):
-                # change to communication to exec relay
-                GPIO.output(PIN_ENABLE, GPIO.HIGH)
-                GPIO.output(PIN_POLARITY, GPIO.HIGH)
-                print("not injecting current")
+                com_port_mcu.write(b"_") # inject positive current
+                data_stop_inject = com_port_mcu.readline().decode("utf-8").strip()
+                print(data_stop_inject)
+                # toast(data_stop_inject)
+                while True:  
+                    if data_stop_inject == "Not Injected":
+                        break
+                    else:
+                        com_port_mcu.write(b"_")
+                        data_stop_inject = com_port_mcu.readline().decode("utf-8").strip()
+                self.switching_commands()
             
-        elif(inject_state == 1 | inject_state == 5 | inject_state == 9 | inject_state == 13 | inject_state == 17 | inject_state == 21 | inject_state == 25 | inject_state == 29 | inject_state == 33 | inject_state == 37):
-            Clock.schedule_interval(self.measurement_sampling, (dt_time) / 10000)
+        elif(inject_state == 1 or inject_state == 5 or inject_state == 9 or inject_state == 13 or inject_state == 17 or inject_state == 21 or inject_state == 25 or inject_state == 29 or inject_state == 33 or inject_state == 37):
+            Clock.schedule_interval(self.measurement_sampling_event, time_sampling)
+
             if(not DEBUG):
-                # change to communication to exec relay
-                GPIO.output(PIN_ENABLE, GPIO.LOW)
-                GPIO.output(PIN_POLARITY, GPIO.HIGH)
-                print("inject positive current")
+                com_port_mcu.write(b"/")
+                data_reset_inject = com_port_mcu.readline().decode("utf-8").strip()
+                print(data_reset_inject)
+                # toast(data_reset_inject)
+                while True:
+                    if data_reset_inject == "Reset Inject Voltage":
+                        break
+                    else:
+                        com_port_mcu.write(b"/")
+                        data_reset_inject = com_port_mcu.readline().decode("utf-8").strip()
+                
+                com_port_mcu.write(b"+")
+                data_plus_inject = com_port_mcu.readline().decode("utf-8").strip()
+                print(data_plus_inject)
+                # toast(data_plus_inject)
+                while True:
+                    if data_plus_inject == "Inject Positif":
+                        break
+                    else:
+                        com_port_mcu.write(b"+")
+                        data_plus_inject = com_port_mcu.readline().decode("utf-8").strip()
+
+                data_indikasi_lanjut = com_port_mcu.readline().decode("utf-8").strip()
+                print(data_indikasi_lanjut)
+                # toast(data_indikasi_lanjut)
+                while True:
+                    if data_indikasi_lanjut == "Lanjut":
+                        break
+                    else:
+                        data_indikasi_lanjut = com_port_mcu.readline().decode("utf-8").strip()
+
+                com_port_mcu.write(b"+")
+                data_plus_inject = com_port_mcu.readline().decode("utf-8").strip()
+                print(data_plus_inject)
+                # toast(data_plus_inject)
+                while True:
+                    if data_plus_inject == "Inject Positif":
+                        break
+                    else:
+                        com_port_mcu.write(b"+")
+                        data_plus_inject = com_port_mcu.readline().decode("utf-8").strip()
             
-        elif(inject_state == 2 | inject_state == 6 | inject_state == 10 | inject_state == 14 | inject_state == 18 | inject_state == 22 | inject_state == 26 | inject_state == 30 | inject_state == 34 | inject_state == 38):
-            Clock.unschedule(self.measurement_sampling)
+        elif(inject_state == 2 or inject_state == 6 or inject_state == 10 or inject_state == 14 or inject_state == 18 or inject_state == 22 or inject_state == 26 or inject_state == 30 or inject_state == 34 or inject_state == 38):
+            Clock.unschedule(self.measurement_sampling_event)
+
             if(not DEBUG):
-                # change to communication to exec relay
-                GPIO.output(PIN_ENABLE, GPIO.HIGH)
-                GPIO.output(PIN_POLARITY, GPIO.HIGH)
-                print("not injecting current")
+                com_port_mcu.write(b"_")
+                data_stop_inject = com_port_mcu.readline().decode("utf-8").strip()
+                print(data_stop_inject)
+                # toast(data_stop_inject)
+                while True:
+                    if data_stop_inject == "Not Injected":
+                        break
+                    else:
+                        com_port_mcu.write(b"_")
+                        data_stop_inject = com_port_mcu.readline().decode("utf-8").strip()
             
-        elif(inject_state == 3 | inject_state == 7 | inject_state == 11 | inject_state == 15 | inject_state == 19 | inject_state == 23 | inject_state == 27 | inject_state == 31 | inject_state == 35 | inject_state == 39):
-            Clock.schedule_interval(self.measurement_sampling, (dt_time) / 10000)
+        elif(inject_state == 3 or inject_state == 7 or inject_state == 11 or inject_state == 15 or inject_state == 19 or inject_state == 23 or inject_state == 27 or inject_state == 31 or inject_state == 35 or inject_state == 39):
+            Clock.schedule_interval(self.measurement_sampling_event, time_sampling)
             if(not DEBUG):
-                # change to communication to exec relay
-                GPIO.output(PIN_ENABLE, GPIO.LOW)
-                GPIO.output(PIN_POLARITY, GPIO.LOW)
-                print("inject negative current")
-            
-        print("step:", step, ", inject:",inject_state)
+                com_port_mcu.write(b"-")
+                data_negatif_inject = com_port_mcu.readline().decode("utf-8").strip()
+                print(data_negatif_inject)
+                # toast(data_negatif_inject)
+                while True:
+                    if data_negatif_inject == "Inject Negatif":
+                        break
+                    else:
+                        com_port_mcu.write(b"-")
+                        data_negatif_inject = com_port_mcu.readline().decode("utf-8").strip()
         inject_state += 1
         
-    def measurement_sampling(self, dt):
-        global dt_current
-        global dt_voltage
-        global ads
+    def measurement_sampling_event(self, dt):
+        # print("this is measurment sampling event at data screen")
+        global dt_current, dt_voltage
+        global com_port_mcu
+        global flag_run
 
         # Data acquisition
         dt_voltage_temp = np.zeros_like(dt_voltage)
         dt_current_temp = np.zeros_like(dt_current)
 
-        if(not DEBUG):
-            try:
-                # change to communication to read analog current
-                chan_c = AnalogIn(ads, ADS.P0)
-                realtime_current = (chan_c.voltage - C_OFFSET) * C_GAIN
-                dt_current_temp[:1] = realtime_current
-            except:
-                toast("error read current")
-                dt_current_temp[:1] = 0.0
+        if(flag_run):
+            if (not DEBUG):
+                #try:
+                com_port_mcu.write(b"a")
+                data_current = com_port_mcu.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
+                while True:
+                    if data_current[0] == "a":
+                        curr = float(data_current[1:])
+                        realtime_current = curr
+                        
+                        print("Realtime Curr:", realtime_current)
+                        dt_current_temp[:1] = realtime_current
+                        #time.sleep(0.5)
+                        break
+                    else:
+                        com_port_mcu.write(b"a")
+                        data_current = com_port_mcu.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
+                #except:
+                    #toast("Error read Current")
+                    #dt_current_temp[:1] = 0.0
+                
+                #try:
+                com_port_mcu.write(b"v")
+                data_millivoltage = com_port_mcu.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
+                #print(data_millivoltage)
+                while True:
+                    if data_millivoltage[0] == 'v':
+                        millivolt = float(data_millivoltage[1:])
+                        volt = millivolt / 1000
+                        realtime_voltage = volt
 
-            try:
-                # change to communication to read analog potential voltage
-                chan_p = AnalogIn(ads, ADS.P1)
-                realtime_voltage = (chan_p.voltage - P_OFFSET) * P_GAIN
-                dt_voltage_temp[:1] = realtime_voltage                
-
-            except:
-                toast("error read voltage")
-                dt_voltage_temp[:1] = 0.0
+                        print("Realtime Volt:", realtime_voltage)
+                        dt_voltage_temp[:1] = realtime_voltage
+                        #print(data_millivoltage)
+                        break
+                    else:
+                        com_port_mcu.write(b"v")
+                        data_millivoltage = com_port_mcu.readline().decode("utf-8").strip()
+                #except:
+                #   toast("Error read Voltage")
+                #  dt_voltage_temp[:1] = 0.0
 
         dt_voltage_temp[1:] = dt_voltage[:-1]
         dt_voltage = dt_voltage_temp
-        
+
         dt_current_temp[1:] = dt_current[:-1]
-        dt_current = dt_current_temp       
+        dt_current = dt_current_temp
+
 
     def switching_commands(self):
         global step
@@ -794,24 +971,54 @@ class ScreenData(BoxLayout):
         except:
             pass
 
-    def delayed_init(self, dt):
-        self.ids.bt_shutdown.md_bg_color = "#A50000"
-        layout = self.ids.layout_tables
-        
-        self.data_tables = MDDataTable(
-            use_pagination=True,
-            pagination_menu_pos="auto",
-            rows_num=4,
-            column_data=[
-                ("No.", dp(10), self.sort_on_num),
-                ("Volt [V]", dp(27)),
-                ("Curr [mA]", dp(27)),
-                ("Resi [kOhm]", dp(27)),
-                ("Std Dev Res", dp(27)),
-                ("IP (R decay)", dp(27)),
-            ],
-        )
-        layout.add_widget(self.data_tables)
+    # def switching_commands(self):
+    #     global step
+    #     global max_step
+    #     global com_port_mcu
+    #     global arr_electrode
+
+    #     try:
+    #         serial_text = str(f"*{arr_electrode[0, step]},{arr_electrode[1, step]},{arr_electrode[2, step]},{arr_electrode[3, step]}")
+    #         print(serial_text)
+    #         com_port_mcu.write(serial_text.encode('utf-8'))
+    #         validasi_patok = com_port_mcu.readline()#.decode("utf-8").strip()
+    #         while True:
+    #             print(validasi_patok)
+    #             if  validasi_patok == 'Good':
+    #                 break
+    #             else :
+    #                 com_port_mcu.write(serial_text.encode('utf-8'))
+    #                 print(serial_text)
+    #                 #time.sleep(0.1)
+    #                 validasi_patok = com_port_mcu.readline().decode("utf-8").strip()
+    #                 print(validasi_patok)
+    #     except:
+    #         pass
+                   
+
+    # def reset_switching(self):
+    #     try:
+    #         com_port_mcu.write(b"%") # reset switching
+    #         data_reset = com_port_mcu.readline().decode("utf-8").strip()  # read the incoming data and remove newline character
+    #         while True:
+    #             print(data_reset)
+    #             if data_reset == "Semua decoder mati":
+    #                 break
+    #             else:
+    #                 com_port_mcu.write(b"%") # reset switching
+    #                 data_reset = com_port_mcu.readline().decode("utf-8").strip()
+            
+    #         com_port_mcu.write(b"_")
+    #         data_stop_inject = com_port_mcu.readline().decode("utf-8").strip()
+    #         while True:
+    #             print(data_stop_inject)
+    #             if data_stop_inject == "Not Injected":
+    #                 break
+    #             else:
+    #                 com_port_mcu.write(b"_")
+    #                 data_stop_inject = com_port_mcu.readline().decode("utf-8").strip()
+    #     except:
+    #         print("Error reset switching")
 
     def reset_data(self):
         global data_base
@@ -820,9 +1027,10 @@ class ScreenData(BoxLayout):
         global dt_current
         global dt_voltage
         global flag_run
+        global com_port_mcu
 
         if(not flag_run):        
-            toast("resetting data")
+            toast("Resetting data")
             data_base = np.zeros([5, 0])
             data_electrode = np.zeros([4, 0], dtype=int)
             dt_measure = np.zeros(6)
@@ -847,7 +1055,7 @@ class ScreenData(BoxLayout):
             layout.add_widget(self.data_tables)
 
         else:
-            toast("cannot reset data while measuring")
+            toast("Cannot reset data while measuring")
         
 
     def sort_on_num(self, data):
@@ -859,107 +1067,92 @@ class ScreenData(BoxLayout):
                 )
             )
         except:
-            toast("error sorting data")
+            toast("Error sorting data")
             
     def save_data(self):
-        global data_base
-        global data_electrode
-        global dt_distance
-        global dt_config
+        global data_base, data_electrode
+        global dt_distance, dt_config
         global data_pos
+        global com_port_mcu
 
         if(not flag_run):
+            if("WENNER (ALPHA)" in dt_config):
+                mode = 1
+            elif("WENNER (BETA)" in dt_config):
+                mode = 1
+            elif("WENNER (GAMMA)" in dt_config):
+                mode = 1
+            elif("POLE-POLE" in dt_config):
+                mode = 2
+            elif("DIPOLE-DIPOLE" in dt_config):
+                mode = 3
+            elif("SCHLUMBERGER" in dt_config):
+                mode = 7
+            toast("Saving data")
+
             try:
-                if("WENNER (ALPHA)" in dt_config):
-                    mode = 1
-                    
-                elif("WENNER (BETA)" in dt_config):
-                    mode = 1
-                    
-                elif("WENNER (GAMMA)" in dt_config):
-                    mode = 1
-                    
-                elif("POLE-POLE" in dt_config):
-                    mode = 2
-                    
-                elif("DIPOLE-DIPOLE" in dt_config):
-                    mode = 3
-                    
-                elif("SCHLUMBERGER" in dt_config):
-                    mode = 7
-                    
-
-                toast("saving data")
-
-                x_loc = data_pos[0, :]
-                # print(x_loc)
-
-                data = data_base[2, :len(x_loc)]
-                # print(data)
-
-                spaces = data_pos[0, :] - data_pos[0, :-1]
-                print(spaces)
-
+                data = data_base[2, :]
+                x_loc = data_pos[0, :data.size]
+                spaces = np.ones_like(data) * dt_distance
                 data_write = np.vstack((x_loc, spaces, data))
+                # data_write = np.vstack((data_write, data))
                 if(data_write.size == 0):
                     data_write = np.array([[0,1,2,3]])
                 print(data_write)
-
+            except Exception as e:
+                toast("Error saving data, measurement is not completed yet")
+            try:
                 now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
-                disk = str(DISK_ADDRESS) + now
-                #disk = os.getcwd() + now
-                head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, len(data_base.T[2]))
+                disk = str(DISK_ADDRESS) + "\data\\" + now # for windows os
+                head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, data.size)
                 foot="0 \n0 \n0 \n0 \n0"
                 with open(disk,"wb") as f:
                     np.savetxt(f, data_write.T, fmt="%.3f", delimiter="\t", header=head, footer=foot, comments="")
-                print("sucessfully save data to Dongle")
-                toast("sucessfully save data to Dongle")
+                print("Sucessfully save data to The Dongle")
+                toast("Sucessfully save data to The Dongle")
             except:
                 try:
                     now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
-                    disk = os.getcwd() + now
-                    head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, len(data_base.T[2]))
+                    disk = os.getcwd() + "\data\\" + now #for windows os
+                    head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, data.size)
                     foot="0 \n0 \n0 \n0 \n0"
                     with open(disk,"wb") as f:
                         np.savetxt(f, data_write.T, fmt="%.3f", delimiter="\t", header=head, footer=foot, comments="")
-                    print("sucessfully save data to Default Directory")
-                    toast("sucessfully save data to Default Directory")
-                except:
-                    print("error saving data")
-                    toast("error saving data")
-                
+                    print("sucessfully save data to The Default Directory")
+                    toast("Sucessfully save data to The Default Directory")
+                except Exception as e:
+                    print("Error save data " + str(e))
+                    # toast("Error saving data")
         else:
-            toast("cannot save data while measuring")
+            toast("Cannot save data while measuring")
 
     def autosave_data(self):
-        global data_base
-        global data_electrode
+        global data_base, data_electrode
 
         data_save = np.vstack((data_electrode, data_base))
-        print(data_save.T)
+        now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.raw")
 
         try:
-            now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.raw")
-            disk = str(DISK_ADDRESS) + now
+            disk = str(DISK_ADDRESS) + "\data\\" + now # for windows os
             with open(disk,"wb") as f:
                 np.savetxt(f, data_save.T, fmt="%.3f",delimiter="\t",header="C1  \t P1  \t P2  \t C2  \t Volt [V] \t Curr [mA] \t Res [kOhm] \t StdDev \t IP [R decay]")
-            print("sucessfully auto save data to Dongle")
-            # toast("sucessfully save data")
+            # print("sucessfully auto save data to Dongle")
+            toast("Sucessfully auto save data to The Dongle")
         except:
             try:
-                now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.raw")
                 cwd = os.getcwd()
-                disk = cwd + now
+                disk = cwd + "\data\\" + now #for windows os
                 with open(disk,"wb") as f:
                     np.savetxt(f, data_save.T, fmt="%.3f",delimiter="\t",header="C1  \t P1  \t P2  \t C2  \t Volt [V] \t Curr [mA] \t Res [kOhm] \t StdDev \t IP [R decay]")
-                print("sucessfully auto save data to Default Directory")
-                # toast("sucessfully save data")
-            except:
-                print("error auto saving data")
-                # toast("error saving data")
+                # print("sucessfully auto save data to Default Directory")
+                toast("Sucessfully save data to The Default Directory")
+            except Exception as e:
+                print("Error autosave data" + str(e))
+                # toast("Error auto saving data")
 
     def measure(self):
         global flag_run
+        global com_port_mcu
         if(flag_run):
             flag_run = False
         else:
@@ -978,22 +1171,39 @@ class ScreenData(BoxLayout):
         global flag_run
 
         if(not flag_run):        
-            toast("shutting down system")
+            toast("Shutting down system")
             os.system("shutdown /s /t 1") #for windows os
-            # os.system("shutdown -h now")
+            # os.system("shutdown -h now") #for linux os
         else:
-            toast("cannot shutting down while measuring")
+            toast("Cannot shutting down while measuring") 
+
 
 class ScreenGraph(BoxLayout):
     screen_manager = ObjectProperty(None)
     global flag_run
+    global com_port_mcu
 
     def __init__(self, **kwargs):
         super(ScreenGraph, self).__init__(**kwargs)
-        Clock.schedule_once(self.delayed_init)
-        Clock.schedule_interval(self.regular_check, 1)
+        Clock.schedule_once(self.delayed_init, DELAY_INITIAL)
 
-    def regular_check(self, dt):
+    def delayed_init(self, dt):
+        Clock.schedule_interval(self.regular_check_event, UPDATE_INTERVAL_GRAPH)
+
+        self.ids.bt_shutdown.md_bg_color = "#A50000"
+        self.fig, self.ax = plt.subplots()
+        self.fig.set_facecolor("#eeeeee")
+        self.fig.tight_layout()
+        l, b, w, h = self.ax.get_position().bounds
+        self.ax.set_position(pos=[l, b + 0.3*h, w, h*0.7])
+        
+        self.ax.set_xlabel("distance [m]", fontsize=10)
+        self.ax.set_ylabel("n", fontsize=10)
+
+        self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))        
+
+    def regular_check_event(self, dt):
+        # print("this is regular check event at graph screen")
         global flag_run
         global flag_dongle
         global count_mounting
@@ -1001,8 +1211,9 @@ class ScreenGraph(BoxLayout):
         global data_base
         global flag_autosave_graph
         global graph_state
+        global com_port_mcu
 
-        if(graph_state > 10):
+        if(graph_state > GRAPH_STATE_COUNT):
             graph_state = 0
 
         if(flag_run):
@@ -1021,24 +1232,27 @@ class ScreenGraph(BoxLayout):
 
         graph_state += 1
 
-        if not DISK_ADDRESS.exists() and flag_dongle:
+        if flag_dongle:
             try:
                 print("try mounting")
-                serial_file = str(DISK_ADDRESS) + "/serial.key"
+                serial_file = str(DISK_ADDRESS) + "serial.key" #for windows os
+                #  serial_file = str(DISK_ADDRESS) + "/serial.key" #for linux os 
                 # print(serial_file)
                 with open(serial_file,"r") as f:
                     serial_number = f.readline()
+                    print("serial number:",serial_number)
                     if serial_number == SERIAL_NUMBER:
-                        print("success, serial number is valid")
+                        toast("Success mounting The Dongle, the Serial number is valid")
                         self.ids.bt_save_graph.disabled = False
+                        flag_dongle = False
                     else:
-                        print("fail, serial number is invalid")
+                        toast("Failed mounting The Dongle, the Serial number is invalid")
                         self.ids.bt_save_graph.disabled = True                    
             except:
-                toast(f"Could not mount Dongle")
+                toast("The Dongle could not be mounted")
                 self.ids.bt_save_graph.disabled = True
                 count_mounting += 1
-                if(count_mounting > 10):
+                if(count_mounting > DONGLE_MOUNT_MAX_RETRY):
                     flag_dongle = False 
 
     def update_graph(self):
@@ -1063,30 +1277,20 @@ class ScreenGraph(BoxLayout):
             max_data = np.max(data_base[2,:data_limit])
             cmap, norm = mcolors.from_levels_and_colors([0.0, max_data, max_data * 2],['green','red'])
             self.ax.scatter(visualized_data_pos[0,:data_limit], -visualized_data_pos[1,:data_limit], c=data_base[2,:data_limit], cmap=cmap, norm=norm, label=l_electrode[0], marker='o')
+            
             # electrode location
             self.ids.layout_graph.clear_widgets()
             self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))
 
-            print("successfully show graphic")
+            # print("successfully show graphic")
+            toast("Successfully show graphic")
         
         except:
-            print("error show graphic")
+            print("Error show graphic")
+            # toast("error show graphic")
 
         if(data_limit >= len(data_pos[0,:])):
             self.measure()
-
-    def delayed_init(self, dt):
-        self.ids.bt_shutdown.md_bg_color = "#A50000"
-        self.fig, self.ax = plt.subplots()
-        self.fig.set_facecolor("#eeeeee")
-        self.fig.tight_layout()
-        l, b, w, h = self.ax.get_position().bounds
-        self.ax.set_position(pos=[l, b + 0.3*h, w, h*0.7])
-        
-        self.ax.set_xlabel("distance [m]", fontsize=10)
-        self.ax.set_ylabel("n", fontsize=10)
-
-        self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))        
 
     def measure(self):
         global flag_run
@@ -1101,11 +1305,12 @@ class ScreenGraph(BoxLayout):
         global flag_run
 
         if(not flag_run):        
-            toast("resetting graph")
+            toast("Resetting graph")
             data_base = np.zeros([5, 0])
             data_pos = np.zeros([2, 0])
 
             try:
+                self.ids.layout_illustration.remove_widget(FigureCanvasKivyAgg(self.fig))
                 self.ids.layout_graph.clear_widgets()
                 self.fig, self.ax = plt.subplots()
                 self.fig.set_facecolor("#eeeeee")
@@ -1117,51 +1322,56 @@ class ScreenGraph(BoxLayout):
                 self.ax.set_ylabel("n", fontsize=10)
 
                 self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))        
-                print("successfully reset graphic")
+                # print("successfully reset graphic")
+                toast("Successfully reset graphic")
             
             except:
-                print("error reset graphic")
+                # print("error reset graphic")
+                toast("Error reset graphic")
 
         else:
-            toast("cannot reset graph while measuring")
+            toast("Cannot reset graph while measuring")
 
 
     def save_graph(self):
         if(not flag_run):        
-            toast("saving graph")
+            toast("Saving graph")
             try:
                 now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-                disk = str(DISK_ADDRESS) + now
+                disk = str(DISK_ADDRESS) + "\data\\" + now
                 self.fig.savefig(disk)
-                print("sucessfully save graph to Dongle")
-                toast("sucessfully save graph to Dongle")
+                # print("sucessfully save graph to Dongle")
+                toast("Sucessfully save graph to The Dongle")
             except:
                 try:
                     now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-                    disk = os.getcwd() + now
+                    disk = os.getcwd() + "\data\\" + now
                     self.fig.savefig(disk)
-                    print("sucessfully save graph to Default Directory")
-                    toast("sucessfully save graph to Default Directory")
+                    # print("sucessfully save graph to Default Directory")
+                    toast("Sucessfully save graph to The Default Directory")
                 except:
-                    print("error saving graph")
-                    toast("error saving graph")
+                    print("Error save graph")
+                    # toast("Error save graph")
         else:
-            toast("cannot save graph while measuring")
+            toast("Cannot save graph while measuring")
 
     def autosave_graph(self):
         try:
             now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-            disk = str(DISK_ADDRESS) + now
+            disk = str(DISK_ADDRESS) + "\data\\" + now #for windows os
             self.fig.savefig(disk)
-            print("sucessfully auto save graph to Dongle")
+            # print("sucessfully auto save graph to Dongle")
+            toast("Sucessfully auto save graph to The Dongle")
         except:
             try:
                 now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-                disk = os.getcwd() + now
+                disk = os.getcwd() + "\data\\" + now #for windows os
                 self.fig.savefig(disk)
-                print("sucessfully auto save graph to Default Directory")
+                # print("sucessfully auto save graph to Default Directory")
+                toast("Sucessfully auto save graph to The Default Directory")
             except:
-                print("error auto saving graph")
+                print("Error auto save graph")
+                # toast("Error auto save graph")
                 
     def screen_setting(self):
         self.screen_manager.current = 'screen_setting'
@@ -1176,11 +1386,11 @@ class ScreenGraph(BoxLayout):
         global flag_run
 
         if(not flag_run):        
-            toast("shutting down system")
+            toast("Shutting down system")
             os.system("shutdown /s /t 1") #for windows os
-            # os.system("shutdown -h now")
+            # os.system("shutdown -h now") #for linux os
         else:
-            toast("cannot shutting down while measuring")
+            toast("Cannot shutting down while measuring")
 
 class ResistivityMeterApp(MDApp):
     def build(self):
