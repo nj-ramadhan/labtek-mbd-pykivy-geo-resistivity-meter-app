@@ -6,31 +6,27 @@
 #:include screen_data.kv
 #:include screen_graph.kv
 
-ScreenManager:
+<RootScreen>:
     id: screen_manager
     transition: NoTransition()
-    Screen:
+
+    ScreenSplash:
+        id: screen_splash
         name: 'screen_splash'
-        ScreenSplash:
-            app_window: app
-            screen_manager: screen_manager
-            screen_setting: screen_setting
+        screen_manager: screen_manager
 
-    Screen:
+    ScreenSetting:
+        id: screen_setting
         name: 'screen_setting'
-        ScreenSetting:
-            id: screen_setting
-            screen_manager: screen_manager
+        screen_manager: screen_manager
 
-    Screen:
+    ScreenData:
+        id: screen_data
         name: 'screen_data'
-        ScreenData:
-            id: screen_data
-            screen_manager: screen_manager
+        screen_manager: screen_manager
          
-    Screen:
+    ScreenGraph:
+        id: screen_graph
         name: 'screen_graph'
-        ScreenGraph:
-            id: screen_graph
-            screen_manager: screen_manager
+        screen_manager: screen_manager
                   

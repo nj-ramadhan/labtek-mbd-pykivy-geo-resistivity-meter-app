@@ -1,67 +1,54 @@
-import sys
-import os
-import numpy as np
-np.set_printoptions(threshold=sys.maxsize)
-import kivy
-from kivymd.app import MDApp
-from kivymd.toast import toast
-from kivymd.uix.datatables import MDDataTable
+from kivy.config import Config
+Config.set('kivy', 'keyboard_mode', 'systemanddock')
+from kivy.clock import Clock
 from kivy.lang import Builder
 from kivy.core.window import Window
-from kivy.uix.boxlayout import BoxLayout
-from kivy.clock import Clock
-from kivy.config import Config
+from kivy.utils import platform
 from kivy.metrics import dp
+from kivy.uix.screenmanager import ScreenManager
+from kivymd.toast import toast
+from kivymd.app import MDApp
+from kivymd.uix.screen import MDScreen
+from kivymd.uix.datatables import MDDataTable
 from kivy.garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from matplotlib.figure import Figure
-from matplotlib.colors import ListedColormap, LinearSegmentedColormap
-from matplotlib.ticker import AutoMinorLocator
+import os, sys, time, numpy as np
 from datetime import datetime
-from pathlib import Path
-from kivy.properties import ObjectProperty
-import time
-import minimalmodbus
-import serial
+import minimalmodbus, configparser, serial, logging
 from serial.tools import list_ports
-
+np.set_printoptions(threshold=sys.maxsize)
 plt.style.use('bmh')
+# Suppress Matplotlib font-related warnings
+logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
 
 colors = {
-    "Red": {
-        "200": "#EE2222",
-        "500": "#EE2222",
-        "700": "#EE2222",
-    },
-
-    "Blue": {
-        "200": "#196BA5",
-        "500": "#196BA5",
-        "700": "#196BA5",
-    },
-
-    "Light": {
-        "StatusBar": "E0E0E0",
-        "AppBar": "#202020",
-        "Background": "#EEEEEE",
-        "CardsDialogs": "#FFFFFF",
-        "FlatButtonDown": "#CCCCCC",
-    },
-
-    "Dark": {
-        "StatusBar": "101010",
-        "AppBar": "#E0E0E0",
-        "Background": "#111111",
-        "CardsDialogs": "#000000",
-        "FlatButtonDown": "#333333",
-    },
+    "Red": {"200": "#EE2222","500": "#EE2222","700": "#EE2222",},
+    "Blue": {"200": "#196BA5","500": "#196BA5","700": "#196BA5",},
+    "Light": {"StatusBar": "E0E0E0","AppBar": "#202020","Background": "#EEEEEE","CardsDialogs": "#FFFFFF","FlatButtonDown": "#CCCCCC",},
+    "Dark": {"StatusBar": "101010","AppBar": "#E0E0E0","Background": "#111111","CardsDialogs": "#000000","FlatButtonDown": "#333333",},
 }
 
-DEBUG = False
-    
+config_name = 'config.ini'
+if getattr(sys, 'frozen', False):
+    application_path = os.path.dirname(sys.executable)
+    running_mode = 'Frozen/executable'
+else:
+    try:
+        app_full_path = os.path.realpath(__file__)
+        application_path = os.path.dirname(app_full_path)
+        running_mode = "Non-interactive (e.g. 'python myapp.py')"
+    except NameError:
+        application_path = os.getcwd()
+        running_mode = 'Interactive'
+
+config_full_path = os.path.join(application_path, config_name)
+config = configparser.ConfigParser()
+config.read(config_full_path)
+
+DEBUG = bool(config['setting']['DEBUG'])
+
 STEPS = 51
-# MAX_POINT_WENNER = 500
 MAX_POINT = 10000
 ELECTRODES_NUM = 48
 
@@ -79,14 +66,15 @@ P_GAIN = 1.0
 # PIN_FWD = 16
 # PIN_REV = 18
 
-USERNAME = "labtek"
-DISK_ADDRESS = Path("/media/labtek/RESDONGLE/")
-#DISK_ADDRESS = Path("/media/" + USERNAME + "/RESDONGLE/")
-SERIAL_NUMBER = "2301212112233412"
+USERNAME = config['setting']['USERNAME']
+SERIAL_NUMBER = config['setting']['SERIAL_NUMBER']
+if platform == "linux":    
+    DISK_ADDRESS = os.path.join("/media/", USERNAME, "RESDONGLE")
+elif platform == "win":    
+    DISK_ADDRESS = os.path.dirname("E:\\")
 
-USERNAME = "labtek"
-DISK_ADDRESS = Path("D:\\") #windows version
-SERIAL_NUMBER = "2407302112233412"
+COM_PORT_MCU = config['setting']['COM_PORT_MCU']
+COM_PORT_RTU = config['setting']['COM_PORT_RTU']
 
 BAUDRATE = 9600
 BYTESIZE = 8
@@ -100,12 +88,12 @@ PARITY_RTU = serial.PARITY_NONE
 STOPBIT_RTU = 2
 TIMEOUT_RTU = 0.05
 
-REQUEST_TIME_OUT = 5.0
-DELAY_INITIAL = 7 #in seconds
-UPDATE_INTERVAL = 2 #in seconds
-UPDATE_INTERVAL_GRAPH = 5
-GRAPH_STATE_COUNT = 5
-DONGLE_MOUNT_MAX_RETRY = 2
+REQUEST_TIME_OUT = float(config['setting']['REQUEST_TIME_OUT'])
+DELAY_INITIAL = int(config['setting']['DELAY_INITIAL'])
+UPDATE_INTERVAL = int(config['setting']['UPDATE_INTERVAL'])
+UPDATE_INTERVAL_GRAPH = int(config['setting']['UPDATE_INTERVAL_GRAPH'])
+GRAPH_STATE_COUNT = int(config['setting']['GRAPH_STATE_COUNT'])
+DONGLE_MOUNT_MAX_RETRY = int(config['setting']['DONGLE_MOUNT_MAX_RETRY'])
 
 x_electrode = np.zeros((4, MAX_POINT))
 n_electrode = np.zeros((ELECTRODES_NUM, STEPS))
@@ -152,18 +140,15 @@ count_mounting = 0
 inject_state = 0
 graph_state = 0
 
-class ScreenSplash(BoxLayout):
-    screen_manager = ObjectProperty(None)
-    screen_setting = ObjectProperty(None)
-    app_window = ObjectProperty(None)
-    
+class ScreenSplash(MDScreen):    
     def __init__(self, **kwargs):
         super(ScreenSplash, self).__init__(**kwargs)
-        try:
-            os.system('cmd /c "cd /media"')
-            os.system('cmd /c "sudo rm -r /labtek"')
-        except:
-            pass
+        if platform == "linux":
+            try:
+                os.system('cmd /c "cd /media"')
+                os.system('cmd /c "sudo rm -r /labtek"')
+            except:
+                pass
         Clock.schedule_interval(self.update_progress_bar, .01)
 
     def update_progress_bar(self, *args):
@@ -181,9 +166,7 @@ class ScreenSplash(BoxLayout):
             self.screen_manager.current = 'screen_setting'
             return False
 
-class ScreenSetting(BoxLayout):
-    screen_manager = ObjectProperty(None)
-
+class ScreenSetting(MDScreen):
     def __init__(self, **kwargs):
         super(ScreenSetting, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init)
@@ -219,11 +202,7 @@ class ScreenSetting(BoxLayout):
         try:
             ports = list_ports.comports(include_links=False)
             for port in ports :
-#                com_port_rtu = port.device[0]
-                
-                # change port setting to "COMXX" for windows
-                # com_port_rtu = "/dev/ttyUSB0"
-                com_port_rtu = "COM13"
+                com_port_rtu = COM_PORT_RTU
                 toast("switching box is connected to " + com_port_rtu)
                 print("switching box is connected to " + com_port_rtu)
 
@@ -294,7 +273,7 @@ class ScreenSetting(BoxLayout):
 
         if(not DEBUG):
             try:
-                com_port_mcu = serial.Serial("COM3")  # COM to Microcontroller, checked manually
+                com_port_mcu = serial.Serial(COM_PORT_MCU)  # COM to Microcontroller, checked manually
                 com_port_mcu.baudrate = BAUDRATE
                 com_port_mcu.parity = PARITY
                 com_port_mcu.bytesize = BYTESIZE
@@ -534,6 +513,18 @@ class ScreenSetting(BoxLayout):
         
         dt_config = configs
 
+    def threshold_up(self):
+        global dt_threshold
+        if(dt_threshold < 200):
+            dt_threshold += 5
+            self.ids.lb_volt_threshold.text = str(dt_threshold)
+
+    def threshold_down(self):
+        global dt_threshold
+        if(dt_threshold > 20):
+            dt_threshold -= 5
+            self.ids.lb_volt_threshold.text = str(dt_threshold)
+
     def screen_setting(self):
         self.screen_manager.current = 'screen_setting'
 
@@ -548,18 +539,15 @@ class ScreenSetting(BoxLayout):
 
         if(not flag_run):        
             toast("shutting down system")
-            os.system("shutdown /s /t 1") #for windows os
-            # os.system("shutdown -h now")
+            if platform == "linux":    
+                os.system("shutdown -h now")
+            elif platform == "win":    
+                os.system("shutdown /s /t 1")
         else:
             toast("cannot shutting down while measuring")
 
-class ScreenData(BoxLayout):
-    screen_manager = ObjectProperty(None)
-
+class ScreenData(MDScreen):
     def __init__(self, **kwargs):
-        global dt_time
-        global dt_cycle
-
         super(ScreenData, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init, DELAY_INITIAL)
 
@@ -594,36 +582,48 @@ class ScreenData(BoxLayout):
         global dt_cycle
         global dt_mode
         global inject_state
-        global flag_autosave_data
-        global step
-        global max_step
+        global flag_autosave_data, flag_autosave_graph, graph_state
+        global step, max_step
         global com_port_mcu
+
+        screen_graph = self.screen_manager.get_screen('screen_graph')
 
         if flag_dongle:
              try:
-                 toast("Try mounting The Dongle")
-                 serial_file = str(DISK_ADDRESS) + "\serial.key" #for windows os
-                #  serial_file = str(DISK_ADDRESS) + "/serial.key" #for linux os
-                 with open(serial_file,"r") as f:
-                     serial_number = f.readline()
-                     print("serial number:",serial_number)
-                     if serial_number == SERIAL_NUMBER:
-                         toast("Successfully mounting The Dongle, the Serial number is valid")
-                         self.ids.bt_save_data.disabled = False
-                         flag_dongle = False 
-                     else:
-                         toast("Failed mounting The Dongle, the Serial number is invalid")
-                         self.ids.bt_save_data.disabled = True                    
+                toast("Try mounting The Dongle")
+                serial_file = os.path.join(DISK_ADDRESS, "serial.key")
+
+                with open(serial_file,"r") as f:
+                    serial_number = f.readline()
+                    if serial_number == SERIAL_NUMBER:
+                        toast("Successfully mounting The Dongle, the Serial number is valid")
+                        self.ids.bt_save_data.disabled = False
+                        screen_graph.ids.bt_save_graph.disabled = False
+                        flag_dongle = False 
+                    else:
+                        toast("Failed mounting The Dongle, the Serial number is invalid")
+                        self.ids.bt_save_data.disabled = True
+                        screen_graph.ids.bt_save_graph.disabled = True
+                        count_mounting += 1
+                        if(count_mounting > DONGLE_MOUNT_MAX_RETRY):
+                            flag_dongle = False                  
              except:
-                 toast("The Dongle could not be mounted")
-                 self.ids.bt_save_data.disabled = True
-                 count_mounting += 1
-                 if(count_mounting > DONGLE_MOUNT_MAX_RETRY):
-                     flag_dongle = False 
+                toast("The Dongle could not be mounted")
+                self.ids.bt_save_data.disabled = True
+                screen_graph.ids.bt_save_graph.disabled = True
+                count_mounting += 1
+                if(count_mounting > DONGLE_MOUNT_MAX_RETRY):
+                    flag_dongle = False 
 
         if(flag_run):
             self.ids.bt_measure.text = "STOP MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#A50000"
+
+            screen_graph.ids.bt_measure.text = "STOP MEASUREMENT"
+            screen_graph.ids.bt_measure.md_bg_color = "#A50000"
+            flag_autosave_graph = True
+            if(graph_state == 0):
+                screen_graph.update_graph()
 
             flag_autosave_data = True
             measure_interval = (int(4 * dt_cycle * dt_time) / 1000)
@@ -659,11 +659,18 @@ class ScreenData(BoxLayout):
             self.ids.bt_measure.text = "RUN MEASUREMENT"
             self.ids.bt_measure.md_bg_color = "#196BA5"
             self.stop_measure()
-        
+
+            screen_graph.ids.bt_measure.text = "RUN MEASUREMENT"
+            screen_graph.ids.bt_measure.md_bg_color = "#196BA5"
+            if(flag_autosave_graph):
+                screen_graph.autosave_graph()
+                flag_autosave_graph = False
+
         if(flag_run == False and flag_run_prev == True):
             self.reset_switching()
         
         flag_run_prev = flag_run
+        graph_state += 1
 
     def stop_measure(self):
         global flag_measure
@@ -1101,22 +1108,30 @@ class ScreenData(BoxLayout):
                 print(data_write)
             except Exception as e:
                 toast("Error saving data, measurement is not completed yet")
+
+            now = datetime.now().strftime("%d_%m_%Y_%H_%M_%S.dat")                
+            head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, data.size)
+            foot="0 \n0 \n0 \n0 \n0"
             try:
-                now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
-                disk = str(DISK_ADDRESS) + "\data\\" + now # for windows os
-                head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, data.size)
-                foot="0 \n0 \n0 \n0 \n0"
-                with open(disk,"wb") as f:
+                path_name = os.path.join(DISK_ADDRESS, "data")
+                file_name = os.path.join(path_name, now)
+
+                if(not os.path.isdir(path_name)):
+                    os.mkdir(path_name)
+
+                with open(file_name,"wb") as f:
                     np.savetxt(f, data_write.T, fmt="%.3f", delimiter="\t", header=head, footer=foot, comments="")
                 print("Sucessfully save data to The Dongle")
                 toast("Sucessfully save data to The Dongle")
             except:
                 try:
-                    now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.dat")
-                    disk = os.getcwd() + "\data\\" + now #for windows os
-                    head="%s \n%.2f \n%s \n%s \n0 \n1" % (now, dt_distance, mode, data.size)
-                    foot="0 \n0 \n0 \n0 \n0"
-                    with open(disk,"wb") as f:
+                    path_name = os.path.join(os.getcwd(), "data")
+                    file_name = os.path.join(path_name, now)
+
+                    if(not os.path.isdir(path_name)):
+                        os.mkdir(path_name)
+
+                    with open(file_name,"wb") as f:
                         np.savetxt(f, data_write.T, fmt="%.3f", delimiter="\t", header=head, footer=foot, comments="")
                     print("sucessfully save data to The Default Directory")
                     toast("Sucessfully save data to The Default Directory")
@@ -1130,19 +1145,27 @@ class ScreenData(BoxLayout):
         global data_base, data_electrode
 
         data_save = np.vstack((data_electrode, data_base))
-        now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.raw")
-
+        now = datetime.now().strftime("%d_%m_%Y_%H_%M_%S.raw")
         try:
-            disk = str(DISK_ADDRESS) + "\data\\" + now # for windows os
-            with open(disk,"wb") as f:
+            path_name = os.path.join(DISK_ADDRESS, "data")
+            file_name = os.path.join(path_name, now)
+
+            if(not os.path.isdir(path_name)):
+                os.mkdir(path_name)
+
+            with open(file_name,"wb") as f:
                 np.savetxt(f, data_save.T, fmt="%.3f",delimiter="\t",header="C1  \t P1  \t P2  \t C2  \t Volt [V] \t Curr [mA] \t Res [kOhm] \t StdDev \t IP [R decay]")
             # print("sucessfully auto save data to Dongle")
             toast("Sucessfully auto save data to The Dongle")
         except:
             try:
-                cwd = os.getcwd()
-                disk = cwd + "\data\\" + now #for windows os
-                with open(disk,"wb") as f:
+                path_name = os.path.join(os.getcwd(), "data")
+                file_name = os.path.join(path_name, now)
+
+                if(not os.path.isdir(path_name)):
+                    os.mkdir(path_name)
+
+                with open(file_name,"wb") as f:
                     np.savetxt(f, data_save.T, fmt="%.3f",delimiter="\t",header="C1  \t P1  \t P2  \t C2  \t Volt [V] \t Curr [mA] \t Res [kOhm] \t StdDev \t IP [R decay]")
                 # print("sucessfully auto save data to Default Directory")
                 toast("Sucessfully save data to The Default Directory")
@@ -1177,12 +1200,7 @@ class ScreenData(BoxLayout):
         else:
             toast("Cannot shutting down while measuring") 
 
-
-class ScreenGraph(BoxLayout):
-    screen_manager = ObjectProperty(None)
-    global flag_run
-    global com_port_mcu
-
+class ScreenGraph(MDScreen):
     def __init__(self, **kwargs):
         super(ScreenGraph, self).__init__(**kwargs)
         Clock.schedule_once(self.delayed_init, DELAY_INITIAL)
@@ -1215,45 +1233,6 @@ class ScreenGraph(BoxLayout):
 
         if(graph_state > GRAPH_STATE_COUNT):
             graph_state = 0
-
-        if(flag_run):
-            self.ids.bt_measure.text = "STOP MEASUREMENT"
-            self.ids.bt_measure.md_bg_color = "#A50000"
-            flag_autosave_graph = True
-            if(graph_state == 0):
-                self.update_graph()
-            
-        else:
-            self.ids.bt_measure.text = "RUN MEASUREMENT"
-            self.ids.bt_measure.md_bg_color = "#196BA5"
-            if(flag_autosave_graph):
-                self.autosave_graph()
-                flag_autosave_graph = False
-
-        graph_state += 1
-
-        if flag_dongle:
-            try:
-                print("try mounting")
-                serial_file = str(DISK_ADDRESS) + "serial.key" #for windows os
-                #  serial_file = str(DISK_ADDRESS) + "/serial.key" #for linux os 
-                # print(serial_file)
-                with open(serial_file,"r") as f:
-                    serial_number = f.readline()
-                    print("serial number:",serial_number)
-                    if serial_number == SERIAL_NUMBER:
-                        toast("Success mounting The Dongle, the Serial number is valid")
-                        self.ids.bt_save_graph.disabled = False
-                        flag_dongle = False
-                    else:
-                        toast("Failed mounting The Dongle, the Serial number is invalid")
-                        self.ids.bt_save_graph.disabled = True                    
-            except:
-                toast("The Dongle could not be mounted")
-                self.ids.bt_save_graph.disabled = True
-                count_mounting += 1
-                if(count_mounting > DONGLE_MOUNT_MAX_RETRY):
-                    flag_dongle = False 
 
     def update_graph(self):
         global flag_run
@@ -1336,42 +1315,60 @@ class ScreenGraph(BoxLayout):
     def save_graph(self):
         if(not flag_run):        
             toast("Saving graph")
+            now = datetime.now().strftime("%d_%m_%Y_%H_%M_%S.jpg")
             try:
-                now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-                disk = str(DISK_ADDRESS) + "\data\\" + now
-                self.fig.savefig(disk)
+                path_name = os.path.join(DISK_ADDRESS, "graph")
+                file_name = os.path.join(path_name, now)
+
+                if(not os.path.isdir(path_name)):
+                    os.mkdir(path_name)
+
+                self.fig.savefig(file_name)
                 # print("sucessfully save graph to Dongle")
                 toast("Sucessfully save graph to The Dongle")
             except:
                 try:
-                    now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-                    disk = os.getcwd() + "\data\\" + now
-                    self.fig.savefig(disk)
+                    path_name = os.path.join(os.getcwd(), "graph")
+                    file_name = os.path.join(path_name, now)
+
+                    if(not os.path.isdir(path_name)):
+                        os.mkdir(path_name)
+                        
+                    self.fig.savefig(file_name)
                     # print("sucessfully save graph to Default Directory")
                     toast("Sucessfully save graph to The Default Directory")
-                except:
-                    print("Error save graph")
-                    # toast("Error save graph")
+                except Exception as e:
+                    print(f"Error saving graph: {e}")
+                    # toast("Error saving graph")
         else:
             toast("Cannot save graph while measuring")
 
     def autosave_graph(self):
-        try:
-            now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-            disk = str(DISK_ADDRESS) + "\data\\" + now #for windows os
-            self.fig.savefig(disk)
+        now = datetime.now().strftime("%d_%m_%Y_%H_%M_%S.jpg")
+        try:           
+            path_name = os.path.join(DISK_ADDRESS, "graph")
+            file_name = os.path.join(path_name, now)
+
+            if(not os.path.isdir(path_name)):
+                os.mkdir(path_name)
+
+            self.fig.savefig(file_name)
             # print("sucessfully auto save graph to Dongle")
             toast("Sucessfully auto save graph to The Dongle")
         except:
             try:
-                now = datetime.now().strftime("/%d_%m_%Y_%H_%M_%S.jpg")
-                disk = os.getcwd() + "\data\\" + now #for windows os
-                self.fig.savefig(disk)
+                path_name = os.path.join(os.getcwd(), "graph")
+                file_name = os.path.join(path_name, now)
+
+                if(not os.path.isdir(path_name)):
+                    os.mkdir(path_name)
+
+                self.fig.savefig(file_name)
                 # print("sucessfully auto save graph to Default Directory")
                 toast("Sucessfully auto save graph to The Default Directory")
-            except:
-                print("Error auto save graph")
-                # toast("Error auto save graph")
+            except Exception as e:
+                print(f"Error auto saving graph {e}")
+                # toast("Error auto saving graph")
                 
     def screen_setting(self):
         self.screen_manager.current = 'screen_setting'
@@ -1392,20 +1389,21 @@ class ScreenGraph(BoxLayout):
         else:
             toast("Cannot shutting down while measuring")
 
+class RootScreen(ScreenManager):
+    pass  
+
 class ResistivityMeterApp(MDApp):
     def build(self):
         self.theme_cls.colors = colors
         self.theme_cls.primary_palette = "Blue"
-        self.icon = 'asset/logo_labtek_p.ico'
+        self.icon = 'asset/logo_labtek_p.png'
         # Window.fullscreen = 'auto'
         Window.borderless = True
         Window.size = 1024, 600
         Window.allow_screensaver = True
 
-        screen = Builder.load_file('main.kv')
-
-        return screen
-
+        Builder.load_file('main.kv')
+        return RootScreen()
 
 if __name__ == '__main__':
     ResistivityMeterApp().run()

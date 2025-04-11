@@ -1,10 +1,10 @@
 #:kivy 2.1.0
 
 <ScreenGraph>:
-    BoxLayout:
+    MDBoxLayout:
         orientation: "vertical"
 		# header layout
-        BoxLayout:
+        MDBoxLayout:
             id: header_layout
             orientation: "horizontal"
             padding: 20
@@ -18,7 +18,7 @@
 				size_hint_x: 0.15
 				on_press: root.exec_shutdown()
 
-            BoxLayout:
+            MDBoxLayout:
                 orientation: "vertical"
                 padding: 0, 15
 
@@ -31,12 +31,12 @@
                     
             Image:
                 id: logo
-                source:'asset/logo_labtek.png'
+                source:'assets/images/logo_labtek.png'
                 size_hint_x: 0.25
                 allow_stretch: True
 						
 		# graph layout
-		BoxLayout:
+		MDBoxLayout:
 			orientation: "vertical"
 			size_hint_y: 0.5
 			padding:10
@@ -49,13 +49,13 @@
 				color: 0, 0, 0
 				size_hint_y: 0.1
 				
-			BoxLayout:
+			MDBoxLayout:
 				id: layout_graph
 				orientation: "horizontal"
 				size_hint_y: 0.66
 				spacing: 20
 
-		BoxLayout:
+		MDBoxLayout:
 			orientation: "horizontal"
 			size_hint_y: 0.06
 			padding:10	
@@ -86,7 +86,7 @@
 				on_press: root.measure()
 
 		# MDRectangleFlatIconButton: navigation layout
-		BoxLayout:
+		MDBoxLayout:
 			orientation: "horizontal"
 			size_hint_y: 0.06
 			padding:10
