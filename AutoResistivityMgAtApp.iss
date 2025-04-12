@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Automatic Resistivity Meter MG-AT Application"
-#define MyAppVersion "1.0.250411"
+#define MyAppVersion "1.3.250413"
 #define MyAppPublisher "Labtek"
 #define MyAppExeName "AutoResistivityMgAtApp.exe"
 #define MyAppAssocName "Automatic Resistivity Meter MG-AT Files"

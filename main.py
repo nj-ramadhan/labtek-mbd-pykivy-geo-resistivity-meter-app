@@ -17,6 +17,7 @@ import matplotlib.colors as mcolors
 import os, sys, time, numpy as np
 from datetime import datetime
 import minimalmodbus, configparser, serial, logging
+from serial.tools import list_ports
 np.set_printoptions(threshold=sys.maxsize)
 plt.style.use('bmh')
 # Suppress Matplotlib font-related warnings
@@ -47,7 +48,6 @@ config = configparser.ConfigParser()
 config.read(config_full_path)
 
 DEBUG = bool(int(config['setting']['DEBUG']))
-Logger.info(f"Debug: {DEBUG}")
 DONGLE_DIR_LIN = config['setting']['DONGLE_DIR_LIN']
 DONGLE_DIR_WIN = config['setting']['DONGLE_DIR_WIN']
 USERNAME = config['setting']['USERNAME']
@@ -57,7 +57,7 @@ if platform == "linux":
     DISK_ADDRESS = os.path.join(DISK_ADDRESS, DONGLE_DIR_LIN)
 elif platform == "win":    
     DISK_ADDRESS = os.path.dirname(DONGLE_DIR_WIN)
-Logger.info(f"Dongle path: {DISK_ADDRESS}")
+
 COM_PORT_MCU = config['setting']['COM_PORT_MCU']
 COM_PORT_RTU = config['setting']['COM_PORT_RTU']
 
@@ -172,7 +172,7 @@ class ScreenSplash(MDScreen):
 class ScreenSetting(MDScreen):
     def __init__(self, **kwargs):
         super(ScreenSetting, self).__init__(**kwargs)
-        Clock.schedule_once(self.delayed_init, 1)
+        Clock.schedule_once(self.delayed_init)
         Clock.schedule_interval(self.regular_check, 1)
 
     def regular_check(self, dt):
@@ -203,16 +203,11 @@ class ScreenSetting(MDScreen):
         self.ids.layout_illustration.add_widget(FigureCanvasKivyAgg(self.fig))
 
         try:
-            self.connect_to_mcu()
-            Clock.schedule_interval(self.read_mcu, REQUEST_TIME_OUT)
-            Logger.info("Controller unit is connected")
-        except:
-            Clock.schedule_interval(self.auto_reconnect, REQUEST_TIME_OUT)
-            toast("Controller unit is disconnected")
-            Logger.error("Controller unit is disconnected")
-
-        try:
-            com_port_rtu = COM_PORT_RTU
+            ports = list_ports.comports(include_links=False)
+            for port in ports :
+                com_port_rtu = COM_PORT_RTU
+                toast("switching box is connected to " + com_port_rtu)
+                print("switching box is connected to " + com_port_rtu)
 
             rtu1 = minimalmodbus.Instrument(com_port_rtu, 1 ,mode=minimalmodbus.MODE_RTU)
             rtu2 = minimalmodbus.Instrument(com_port_rtu, 2 ,mode=minimalmodbus.MODE_RTU)
@@ -229,10 +224,16 @@ class ScreenSetting(MDScreen):
             rtu6.write_bits(80, data_rtu6.tolist()) 
 
         except:
-            toast("No switching box connected")
-            Logger.warning("No switching box connected")
+            toast("no switching box connected")
+            print("no switching box connected")
 
-
+        try:
+            self.connect_to_mcu()
+            Clock.schedule_interval(self.read_mcu, REQUEST_TIME_OUT)
+            toast("Switching unit is sucessfully connected")
+        except:
+            Clock.schedule_interval(self.auto_reconnect, REQUEST_TIME_OUT)
+            toast("Switching unit is disconnected")
 
         # try:
         #     com_port_mcu.write(b"%") # reset switching
@@ -254,10 +255,8 @@ class ScreenSetting(MDScreen):
             self.connect_to_mcu()
             Clock.schedule_interval(self.read_mcu, REQUEST_TIME_OUT)
             Clock.unschedule(self.auto_reconnect)
-            Logger.info("Auto reconnect to MCU")
         except:
-            Logger.error("Controller unit is disconnected, try reconnecting..")
-            toast("Controller unit is disconnected, try reconnecting..")
+            toast("Switching unit is disconnected, try reconnecting..")
 
     def read_mcu(self, dt):
         global com_port_mcu
@@ -265,12 +264,12 @@ class ScreenSetting(MDScreen):
 
         if(not DEBUG):
             try:
+                print("Reading mcu")
                 com_port_mcu.write(b" ")
-                Logger.info("Reading MCU")
             except Exception as e:
                 Clock.schedule_interval(self.auto_reconnect, REQUEST_TIME_OUT)
-                error_msg = "Error reading Controller unit :" + str(e)
-                Logger.error(error_msg)
+                error_msg = "Error reading Switching unit :" + str(e)
+                print(error_msg)
 
     def connect_to_mcu(self):
         global com_port_mcu
@@ -281,11 +280,11 @@ class ScreenSetting(MDScreen):
                 com_port_mcu.baudrate = BAUDRATE
                 com_port_mcu.parity = PARITY
                 com_port_mcu.bytesize = BYTESIZE
-                toast("Sucessfully connect to Controller unit")
-                Logger.info("Sucessfully connect to Controller unit")
+                toast("Sucessfully connect to Switching unit")
             except Exception as e:
-                toast("Error connect to Controller unit, try reconnecting")
-                Logger.error("Error connect to Controller unit, try reconnecting")
+                error_msg = "Error connect to Switching unit :" + str(e)
+                print(error_msg)
+                toast("Error connect to Switching unit, try reconnecting")
 
     def illustrate(self):
         global dt_mode
@@ -428,6 +427,7 @@ class ScreenSetting(MDScreen):
             data_c2 = x_electrode[3,:max_step]
 
             arr_electrode = np.array([data_c1, data_p1, data_p2, data_c2], dtype=int)
+            print(arr_electrode.T)
 
             data_rtu = np.zeros([216,max_step], dtype=int)
             for i in range(max_step):
@@ -435,9 +435,10 @@ class ScreenSetting(MDScreen):
                 data_rtu[arr_electrode[1,i]*4 + 1, i] = 1
                 data_rtu[arr_electrode[2,i]*4 + 2, i] = 1
                 data_rtu[arr_electrode[3,i]*4 + 3, i] = 1
+            # print(data_rtu.T)
 
         except:
-            Logger.error("error simulating")
+            print("error simulating")
             toast("error simulating")
 
         self.fig.set_facecolor("#eeeeee")
@@ -780,46 +781,35 @@ class ScreenData(MDScreen):
 
         time_sampling = (int(dt_time) / 10000)
         # print("sampling time:", time_sampling, ", inject state:", inject_state)
-
         if(inject_state >= int(4 * dt_cycle)):
             Clock.unschedule(self.measurement_sampling_event)
             inject_state = 0
             step += 1
-            
-        if(inject_state == 0 or inject_state == 4 or inject_state == 8 or inject_state == 12 or inject_state == 16 or inject_state == 20 or inject_state == 24 or inject_state == 28 or inject_state == 32 or inject_state == 36):
-            Clock.unschedule(self.measurement_sampling_event)
+
+        Logger.info("sampling time: %s, inject state: %s", time_sampling, inject_state)
+
+        if inject_state in {0, 4, 8, 12, 16, 20, 24, 28, 32, 36}:
+            # Clock.unschedule(self.measurement_sampling_event)
             toast_msg = "Measurement " + str(step + 1)
             toast(toast_msg)
             if(not DEBUG):
-                com_port_mcu.write(b"_") # inject positive current
+                com_port_mcu.write(b".") # inject positive current
                 data_stop_inject = com_port_mcu.readline().decode("utf-8").strip()
-                Logger.info(data_stop_inject)
+                print(data_stop_inject)
                 # toast(data_stop_inject)
                 while True:  
                     if data_stop_inject == "Not Injected":
                         break
                     else:
-                        com_port_mcu.write(b"_")
+                        com_port_mcu.write(b".")
                         data_stop_inject = com_port_mcu.readline().decode("utf-8").strip()
                 self.switching_commands()
             
-        elif(inject_state == 1 or inject_state == 5 or inject_state == 9 or inject_state == 13 or inject_state == 17 or inject_state == 21 or inject_state == 25 or inject_state == 29 or inject_state == 33 or inject_state == 37):
-            Clock.schedule_interval(self.measurement_sampling_event, time_sampling)
+        elif inject_state in {1, 5, 9, 13, 17, 21, 25, 29, 33, 37}:            # Clock.schedule_interval(self.measurement_sampling_event, time_sampling)
             if(not DEBUG):
-                com_port_mcu.write(b"/")
-                data_reset_inject = com_port_mcu.readline().decode("utf-8").strip()
-                Logger.info(data_reset_inject)
-                # toast(data_reset_inject)
-                while True:
-                    if data_reset_inject == "Reset Inject Voltage":
-                        break
-                    else:
-                        com_port_mcu.write(b"/")
-                        data_reset_inject = com_port_mcu.readline().decode("utf-8").strip()
-                
                 com_port_mcu.write(b"+")
                 data_plus_inject = com_port_mcu.readline().decode("utf-8").strip()
-                Logger.info(data_plus_inject)
+                print(data_plus_inject)
                 # toast(data_plus_inject)
                 while True:
                     if data_plus_inject == "Inject Positif":
@@ -829,46 +819,35 @@ class ScreenData(MDScreen):
                         data_plus_inject = com_port_mcu.readline().decode("utf-8").strip()
 
                 data_indikasi_lanjut = com_port_mcu.readline().decode("utf-8").strip()
-                Logger.info(data_indikasi_lanjut)
+                print(data_indikasi_lanjut)
                 # toast(data_indikasi_lanjut)
                 while True:
-                    if data_indikasi_lanjut == "Lanjut":
+                    if data_indikasi_lanjut == "Silahkan":
+                        self.measurement_sampling_event(time_sampling)
                         break
                     else:
                         data_indikasi_lanjut = com_port_mcu.readline().decode("utf-8").strip()
-
-                com_port_mcu.write(b"+")
-                data_plus_inject = com_port_mcu.readline().decode("utf-8").strip()
-                Logger.info(data_plus_inject)
-                # toast(data_plus_inject)
-                while True:
-                    if data_plus_inject == "Inject Positif":
-                        break
-                    else:
-                        com_port_mcu.write(b"+")
-                        data_plus_inject = com_port_mcu.readline().decode("utf-8").strip()
             
-        elif(inject_state == 2 or inject_state == 6 or inject_state == 10 or inject_state == 14 or inject_state == 18 or inject_state == 22 or inject_state == 26 or inject_state == 30 or inject_state == 34 or inject_state == 38):
-            Clock.unschedule(self.measurement_sampling_event)
-
+        elif inject_state in {2, 6, 10, 14, 18, 22, 26, 30, 34, 38}:
+        # Clock.unschedule(self.measurement_sampling_event)
             if(not DEBUG):
-                com_port_mcu.write(b"_")
+                com_port_mcu.write(b".")
                 data_stop_inject = com_port_mcu.readline().decode("utf-8").strip()
-                Logger.info(data_stop_inject)
+                print(data_stop_inject)
                 # toast(data_stop_inject)
                 while True:
                     if data_stop_inject == "Not Injected":
                         break
                     else:
-                        com_port_mcu.write(b"_")
+                        com_port_mcu.write(b".")
                         data_stop_inject = com_port_mcu.readline().decode("utf-8").strip()
             
-        elif(inject_state == 3 or inject_state == 7 or inject_state == 11 or inject_state == 15 or inject_state == 19 or inject_state == 23 or inject_state == 27 or inject_state == 31 or inject_state == 35 or inject_state == 39):
+        elif inject_state in {3, 7, 11, 15, 19, 23, 27, 31, 35, 39}:            
             Clock.schedule_interval(self.measurement_sampling_event, time_sampling)
             if(not DEBUG):
                 com_port_mcu.write(b"-")
                 data_negatif_inject = com_port_mcu.readline().decode("utf-8").strip()
-                Logger.info(data_negatif_inject)
+                print(data_negatif_inject)
                 # toast(data_negatif_inject)
                 while True:
                     if data_negatif_inject == "Inject Negatif":
@@ -876,6 +855,17 @@ class ScreenData(MDScreen):
                     else:
                         com_port_mcu.write(b"-")
                         data_negatif_inject = com_port_mcu.readline().decode("utf-8").strip()
+
+                data_indikasi_lanjut = com_port_mcu.readline().decode("utf-8").strip()
+                print(data_indikasi_lanjut)
+                # toast(data_indikasi_lanjut)
+                while True:
+                    if data_indikasi_lanjut == "Silahkan":
+                        self.measurement_sampling_event(time_sampling)
+                        break
+                    else:
+                        data_indikasi_lanjut = com_port_mcu.readline().decode("utf-8").strip()
+
         inject_state += 1
         
     def measurement_sampling_event(self, dt):
@@ -898,7 +888,7 @@ class ScreenData(MDScreen):
                         curr = float(data_current[1:])
                         realtime_current = curr
                         
-                        Logger.info("Realtime Curr:", realtime_current)
+                        print("Realtime Curr:", realtime_current)
                         dt_current_temp[:1] = realtime_current
                         #time.sleep(0.5)
                         break
@@ -919,7 +909,7 @@ class ScreenData(MDScreen):
                         volt = millivolt / 1000
                         realtime_voltage = volt
 
-                        Logger.info("Realtime Volt:", realtime_voltage)
+                        print("Realtime Volt:", realtime_voltage)
                         dt_voltage_temp[:1] = realtime_voltage
                         #print(data_millivoltage)
                         break
@@ -1063,7 +1053,7 @@ class ScreenData(MDScreen):
                 layout.add_widget(self.data_tables)
                 toast("Successfully reset data")
             except Exception as e:
-                Logger.error(f"Error reset data: {e}")
+                print(f"Error reset data: {e}")
                 toast("Error reset data")
         else:
             toast("Cannot reset data while measuring")
@@ -1109,7 +1099,7 @@ class ScreenData(MDScreen):
                 # data_write = np.vstack((data_write, data))
                 if(data_write.size == 0):
                     data_write = np.array([[0,1,2,3]])
-                Logger.info(data_write)
+                print(data_write)
             except Exception as e:
                 toast("Error saving data, measurement is not completed yet")
 
@@ -1125,7 +1115,7 @@ class ScreenData(MDScreen):
 
                 with open(file_name,"wb") as f:
                     np.savetxt(f, data_write.T, fmt="%.3f", delimiter="\t", header=head, footer=foot, comments="")
-                Logger.info(f"Sucessfully save data to The Dongle {file_name}")
+                print("Sucessfully save data to The Dongle")
                 toast("Sucessfully save data to The Dongle")
             except:
                 try:
@@ -1137,10 +1127,10 @@ class ScreenData(MDScreen):
 
                     with open(file_name,"wb") as f:
                         np.savetxt(f, data_write.T, fmt="%.3f", delimiter="\t", header=head, footer=foot, comments="")
-                    Logger.info(f"sucessfully save data to The Default Directory {file_name}")
+                    print("sucessfully save data to The Default Directory")
                     toast("Sucessfully save data to The Default Directory")
                 except Exception as e:
-                    Logger.error("Error save data " + str(e))
+                    print("Error save data " + str(e))
                     # toast("Error saving data")
         else:
             toast("Cannot save data while measuring")
@@ -1174,7 +1164,7 @@ class ScreenData(MDScreen):
                 # print("sucessfully auto save data to Default Directory")
                 toast("Sucessfully save data to The Default Directory")
             except Exception as e:
-                Logger.error("Error autosave data" + str(e))
+                print("Error autosave data" + str(e))
                 # toast("Error auto saving data")
 
     def measure(self):
@@ -1260,7 +1250,7 @@ class ScreenGraph(MDScreen):
 
             # datum location
             max_data = np.max(data_base[2,:data_limit])
-            cmap, norm = mcolors.from_levels_and_colors([0.0, max_data, max_data * 2],['green','red'])
+            cmap, norm = mcolors.from_levels_and_colors([-max_data - 10, 0.0, max_data + 10],['green','red'])
             self.ax.scatter(visualized_data_pos[0,:data_limit], -visualized_data_pos[1,:data_limit], c=data_base[2,:data_limit], cmap=cmap, norm=norm, label=l_electrode[0], marker='o')
             
             # electrode location
@@ -1271,7 +1261,7 @@ class ScreenGraph(MDScreen):
             toast("Successfully show graphic")
         
         except:
-            Logger.error("Error show graphic")
+            print("Error show graphic")
             # toast("error show graphic")
 
         if(data_limit >= len(data_pos[0,:])):
@@ -1310,7 +1300,7 @@ class ScreenGraph(MDScreen):
                 toast("Successfully reset graph")
             
             except Exception as e:
-                Logger.error(f"Error reset graph: {e}")
+                print(f"error reset graph: {e}")
                 toast("Error reset graph")
         else:
             toast("Cannot reset graph while measuring")
@@ -1342,7 +1332,7 @@ class ScreenGraph(MDScreen):
                     # print("sucessfully save graph to Default Directory")
                     toast("Sucessfully save graph to The Default Directory")
                 except Exception as e:
-                    Logger.error(f"Error saving graph: {e}")
+                    print(f"Error saving graph: {e}")
                     # toast("Error saving graph")
         else:
             toast("Cannot save graph while measuring")
@@ -1371,7 +1361,7 @@ class ScreenGraph(MDScreen):
                 # print("sucessfully auto save graph to Default Directory")
                 toast("Sucessfully auto save graph to The Default Directory")
             except Exception as e:
-                Logger.error(f"Error auto saving graph {e}")
+                print(f"Error auto saving graph {e}")
                 # toast("Error auto saving graph")
                 
     def screen_setting(self):
@@ -1405,7 +1395,7 @@ class ResistivityMeterApp(MDApp):
         self.icon = 'asset/logo_labtek_p.png'
         Window.fullscreen = 'auto'
         Window.borderless = True
-        Window.size = 1024, 600
+        # Window.size = 1024, 600
         Window.allow_screensaver = True
 
         Builder.load_file('main.kv')
