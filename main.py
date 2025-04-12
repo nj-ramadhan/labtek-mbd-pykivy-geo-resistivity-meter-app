@@ -47,6 +47,18 @@ config = configparser.ConfigParser()
 config.read(config_full_path)
 
 DEBUG = bool(config['setting']['DEBUG'])
+DONGLE_DIR_LIN = config['setting']['DONGLE_DIR_LIN']
+DONGLE_DIR_WIN = config['setting']['DONGLE_DIR_WIN']
+USERNAME = config['setting']['USERNAME']
+SERIAL_NUMBER = config['setting']['SERIAL_NUMBER']
+if platform == "linux":    
+    DISK_ADDRESS = os.path.join("/media/", USERNAME)
+    DISK_ADDRESS = os.path.join(DISK_ADDRESS, DONGLE_DIR_LIN)
+elif platform == "win":    
+    DISK_ADDRESS = os.path.dirname(DONGLE_DIR_WIN)
+
+COM_PORT_MCU = config['setting']['COM_PORT_MCU']
+COM_PORT_RTU = config['setting']['COM_PORT_RTU']
 
 STEPS = 51
 MAX_POINT = 10000
@@ -65,16 +77,6 @@ P_GAIN = 1.0
 # 
 # PIN_FWD = 16
 # PIN_REV = 18
-
-USERNAME = config['setting']['USERNAME']
-SERIAL_NUMBER = config['setting']['SERIAL_NUMBER']
-if platform == "linux":    
-    DISK_ADDRESS = os.path.join("/media/", USERNAME, "RESDONGLE")
-elif platform == "win":    
-    DISK_ADDRESS = os.path.dirname("E:\\")
-
-COM_PORT_MCU = config['setting']['COM_PORT_MCU']
-COM_PORT_RTU = config['setting']['COM_PORT_RTU']
 
 BAUDRATE = 9600
 BYTESIZE = 8
@@ -589,7 +591,7 @@ class ScreenData(MDScreen):
         screen_graph = self.screen_manager.get_screen('screen_graph')
 
         if flag_dongle:
-             try:
+            try:
                 toast("Try mounting The Dongle")
                 serial_file = os.path.join(DISK_ADDRESS, "serial.key")
 
@@ -607,7 +609,7 @@ class ScreenData(MDScreen):
                         count_mounting += 1
                         if(count_mounting > DONGLE_MOUNT_MAX_RETRY):
                             flag_dongle = False                  
-             except:
+            except:
                 toast("The Dongle could not be mounted")
                 self.ids.bt_save_data.disabled = True
                 screen_graph.ids.bt_save_graph.disabled = True
@@ -788,7 +790,6 @@ class ScreenData(MDScreen):
             Clock.unschedule(self.measurement_sampling_event)
             toast_msg = "Measurement " + str(step + 1)
             toast(toast_msg)
-
             if(not DEBUG):
                 com_port_mcu.write(b"_") # inject positive current
                 data_stop_inject = com_port_mcu.readline().decode("utf-8").strip()
@@ -804,7 +805,6 @@ class ScreenData(MDScreen):
             
         elif(inject_state == 1 or inject_state == 5 or inject_state == 9 or inject_state == 13 or inject_state == 17 or inject_state == 21 or inject_state == 25 or inject_state == 29 or inject_state == 33 or inject_state == 37):
             Clock.schedule_interval(self.measurement_sampling_event, time_sampling)
-
             if(not DEBUG):
                 com_port_mcu.write(b"/")
                 data_reset_inject = com_port_mcu.readline().decode("utf-8").strip()
@@ -1036,31 +1036,35 @@ class ScreenData(MDScreen):
         global flag_run
         global com_port_mcu
 
-        if(not flag_run):        
-            toast("Resetting data")
-            data_base = np.zeros([5, 0])
-            data_electrode = np.zeros([4, 0], dtype=int)
-            dt_measure = np.zeros(6)
-            dt_current = np.zeros(10)
-            dt_voltage = np.zeros(10)
-            
-            layout = self.ids.layout_tables
-            
-            self.data_tables = MDDataTable(
-                use_pagination=True,
-                pagination_menu_pos="auto",
-                rows_num=4,
-                column_data=[
-                    ("No.", dp(10), self.sort_on_num),
-                    ("Volt [V]", dp(27)),
-                    ("Curr [mA]", dp(27)),
-                    ("Resi [kOhm]", dp(27)),
-                    ("Std Dev Res", dp(27)),
-                    ("IP (R decay)", dp(27)),
-                ],
-            )
-            layout.add_widget(self.data_tables)
-
+        if(not flag_run):
+            try:
+                toast("Resetting data")
+                data_base = np.zeros([5, 0])
+                data_electrode = np.zeros([4, 0], dtype=int)
+                dt_measure = np.zeros(6)
+                dt_current = np.zeros(10)
+                dt_voltage = np.zeros(10)
+                
+                layout = self.ids.layout_tables
+                
+                self.data_tables = MDDataTable(
+                    use_pagination=True,
+                    pagination_menu_pos="auto",
+                    rows_num=4,
+                    column_data=[
+                        ("No.", dp(10), self.sort_on_num),
+                        ("Volt [V]", dp(27)),
+                        ("Curr [mA]", dp(27)),
+                        ("Resi [kOhm]", dp(27)),
+                        ("Std Dev Res", dp(27)),
+                        ("IP (R decay)", dp(27)),
+                    ],
+                )
+                layout.add_widget(self.data_tables)
+                toast("Successfully reset data")
+            except Exception as e:
+                print(f"Error reset data: {e}")
+                toast("Error reset data")
         else:
             toast("Cannot reset data while measuring")
         
@@ -1195,8 +1199,10 @@ class ScreenData(MDScreen):
 
         if(not flag_run):        
             toast("Shutting down system")
-            os.system("shutdown /s /t 1") #for windows os
-            # os.system("shutdown -h now") #for linux os
+            if platform == "linux":    
+                os.system("shutdown -h now")
+            elif platform == "win":    
+                os.system("shutdown /s /t 1")
         else:
             toast("Cannot shutting down while measuring") 
 
@@ -1289,8 +1295,7 @@ class ScreenGraph(MDScreen):
             data_pos = np.zeros([2, 0])
 
             try:
-                self.ids.layout_illustration.remove_widget(FigureCanvasKivyAgg(self.fig))
-                self.ids.layout_graph.clear_widgets()
+                self.ids.layout_graph.remove_widget(FigureCanvasKivyAgg(self.fig))
                 self.fig, self.ax = plt.subplots()
                 self.fig.set_facecolor("#eeeeee")
                 self.fig.tight_layout()
@@ -1299,15 +1304,14 @@ class ScreenGraph(MDScreen):
                 
                 self.ax.set_xlabel("distance [m]", fontsize=10)
                 self.ax.set_ylabel("n", fontsize=10)
-
+                self.ids.layout_graph.clear_widgets()
                 self.ids.layout_graph.add_widget(FigureCanvasKivyAgg(self.fig))        
-                # print("successfully reset graphic")
-                toast("Successfully reset graphic")
+                # print("successfully reset graph")
+                toast("Successfully reset graph")
             
-            except:
-                # print("error reset graphic")
-                toast("Error reset graphic")
-
+            except Exception as e:
+                print(f"error reset graph: {e}")
+                toast("Error reset graph")
         else:
             toast("Cannot reset graph while measuring")
 
@@ -1384,8 +1388,10 @@ class ScreenGraph(MDScreen):
 
         if(not flag_run):        
             toast("Shutting down system")
-            os.system("shutdown /s /t 1") #for windows os
-            # os.system("shutdown -h now") #for linux os
+            if platform == "linux":    
+                os.system("shutdown -h now")
+            elif platform == "win":    
+                os.system("shutdown /s /t 1")
         else:
             toast("Cannot shutting down while measuring")
 
