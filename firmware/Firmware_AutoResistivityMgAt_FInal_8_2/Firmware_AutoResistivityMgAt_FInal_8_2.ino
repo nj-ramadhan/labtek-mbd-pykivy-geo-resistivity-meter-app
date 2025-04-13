@@ -268,6 +268,7 @@ void loop() {
       // Serial.print(" | "); Serial.println(detik_pembacaaan);
     }
   }
+  
   Get_Data_Multimeter();
   //Fix
   if (LevelTegangan == 1) {
