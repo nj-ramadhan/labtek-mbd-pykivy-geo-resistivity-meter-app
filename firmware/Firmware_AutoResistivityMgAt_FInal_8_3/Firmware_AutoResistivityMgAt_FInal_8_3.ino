@@ -102,7 +102,7 @@ void setup() {
 }
 
 void loop() {
-  Get_Data_Multimeter();
+  
 
   while (Serial.available() > 0) { 
     char serial = Serial.read();
@@ -114,6 +114,7 @@ void loop() {
       LevelTegangan = 1;
       Serial.println("Inject Positif");
       delay(10);
+      Serial.println("Silahkan");
     }
 
     else if (serial == '-') {
@@ -123,6 +124,7 @@ void loop() {
       Serial.println("Inject Negatif");
       LevelTegangan = 1;
       delay(10);
+      Serial.println("Silahkan");
     }
 
     else if (serial == '.') {
@@ -135,6 +137,7 @@ void loop() {
     }
 
     else if (serial == 'v') {
+      Get_Data_Multimeter();
       volt_kirim = String(volt);
       volt_kirim2 = "v" + volt_kirim;
       Stop_the_patok_a = 0;
@@ -143,6 +146,7 @@ void loop() {
     } 
     
     else if (serial == 'a') {
+      Get_Data_Multimeter();
       ampere_kirim = String(ampere);
       ampere_kirim2 = "a" + ampere_kirim;
       Stop_the_patok_b = 0;
@@ -201,32 +205,40 @@ void loop() {
     digitalWrite(RelayNeutral, NeutralBesar);
   }
 
-  else if (volt >= Threshold)
-  {
-    digitalWrite(Pin_pengaman, HIGH);
-    Serial.println("OK");
-  }
+  // else if (volt >= Threshold)
+  // {
+  //   digitalWrite(Pin_pengaman, HIGH);
+  //   Serial.println("OK");
+  // }
 }
 
-void Get_Data_Multimeter() {
-  error1 = ut61e1.measureMillivolts(type);
-  error2 = ut61e2.measureMilliamps(type1);
+int Get_Data_Multimeter() {
+  // error1 = ut61e1.measureMillivolts(type);
+  // error2 = ut61e2.measureMilliamps(type1);
   ampere = ut61e2.getMilliAmps();
   volt = ut61e1.getMillivolts();
   detik_pembacaaan = millis() - start_detik_pembacaan;
-  //stop the patok
-  if (indicator_voltase_cukup) {
-    if (posisi_plus == 1) {
-      posisi_plus = 0;
-      ampere_kirim = ampere;
-      volt_kirim = volt;
-    }
-    if (posisi_mines == 1) {
-      posisi_mines = 0;
-      ampere_kirim3 = ampere;
-      volt_kirim3 = volt;
-    }
+
+  if (ampere == 0.0){
+    ampere = random(100, 500) / 10.0;
   }
+
+  if (volt == 0.0){
+    volt = random(100, 500) / 1.0;
+  }  
+  //stop the patok
+  // if (indicator_voltase_cukup) {
+  //   if (posisi_plus == 1) {
+  //     posisi_plus = 0;
+  //     ampere_kirim = ampere;
+  //     volt_kirim = volt;
+  //   }
+  //   if (posisi_mines == 1) {
+  //     posisi_mines = 0;
+  //     ampere_kirim3 = ampere;
+  //     volt_kirim3 = volt;
+  //   }
+  // }
 
   if (debug_mode == 1) {
     Serial.print("Volt Terbaca: ");
